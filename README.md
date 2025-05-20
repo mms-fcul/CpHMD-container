@@ -1,5 +1,5 @@
 # CpHMD-container
-Git repository for divulging the st-CpHMD code in container format. Having such tool will allow for CpHMD to be ran in any type of machine as long as <ins>**singularity**<\ins> is installed. 
+Git repository for divulging the st-CpHMD code in container format. Having such tool will allow for CpHMD to be ran in any type of machine as long as <ins>**singularity**</ins> is installed. 
 
 The container has been built in Ubuntu 24.04 and containes the following:
 - Ubuntu 24.04 - base of the container
