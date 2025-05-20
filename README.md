@@ -1,8 +1,18 @@
 # CpHMD-container
 Git repository for divulging the st-CpHMD code in container fashion. 
 
+# How to run CpHMD 
 
+Running CpHMD requires several steps to ensure your system is ready for production. 
+Three steps are usually required for a safe CpHMD run: 
+1. Preparing your starting pdb file [Wiki:System Preparation](https://github.com/mms-fcul/CpHMD-container/wiki/System-Preparation)
+2. Running Minimization and Initialization
+3. Preparing the inputs for the CpHMD run [Wiki:Editing-the-CpHMD.settings](https://github.com/mms-fcul/CpHMD-container/wiki/Editing-the-CpHMD.settings-to-your-taste)
 
+With all files prepared, starting the simulation is as simple as running your production folder.
+```
+singularity exec --bind <your home directory> <CpHMD container> /CpHMD/scripts/CpHMD.sh  ./CpHMD-(basic|advanced).settings
+```
 
 ## Key available apps
 ### System preparation 
