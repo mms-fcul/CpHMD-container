@@ -1,5 +1,18 @@
 # CpHMD-container
-Git repository for divulging the st-CpHMD code in container fashion. 
+Git repository for divulging the st-CpHMD code in container format. Having such tool will allow for CpHMD to be ran in any type of machine as long as <ins>**singularity**<\ins> is installed. 
+
+The container has been built in Ubuntu 24.04 and containes the following:
+- Ubuntu 24.04 - base of the container
+- GROMACS 2024.3 (CPU only)
+- CpHMD running scripts
+- CpHMD Force Fields - GROMOS54a7, CHARMM36, AMBER14SB
+- Delphi v
+- Petit 1.6.1
+
+Environments currently tested for CpHMD container calculations: 
+- [X] Linux environment
+- [X] Windows environment (using WSL)
+- [ ] Mac OS
 
 # How to run CpHMD 
 
