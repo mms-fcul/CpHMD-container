@@ -13,7 +13,9 @@ With all files prepared, starting the simulation is as simple as running your pr
 ```
 singularity exec --bind <your home directory> <CpHMD container> /CpHMD/scripts/CpHMD.sh  ./CpHMD-(basic|advanced).settings
 ```
+How to manage the simulation submission, paralelization and background tasking is left on the hands of the user. This allows for a better adaptation on however each computing infrastructure is set, requiring only integration on the prefered workflow.
 
+--------------------------------------------------------------------------------------------------------------------------------------
 ## Key available apps
 ### System preparation 
 - **pdb2cphmd** [Wiki_page](https://github.com/mms-fcul/CpHMD-container/wiki/System-Preparation)
