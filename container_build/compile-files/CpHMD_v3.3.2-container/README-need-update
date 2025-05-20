@@ -1,0 +1,569 @@
+=======================================================================
+ CpHMD, version 2.1 : Constant-pH Molecular Dynamics
+ =======================================================================
+
+Copyright (C) 2018  by Antonio M. Baptista & Miguel Machuqueiro
+All rights reserved.
+- This program can be used for scientific purposes only, excluding
+  industrial or commercial purposes.
+- Copying and distribution by author's permission only.
+- This software is distributed without any warranty.
+Contact: Antonio M. Baptista
+         Instituto de Tecnologia Quimica e Biologica,
+         Av. da Republica, EAN, ITQB II, Apartado 127,
+         2781-901 Oeiras, Portugal.
+         E-mail: baptista@itqb.unl.pt
+         WWW: http://www.itqb.unl.pt/simulation
+
+         Miguel Machuqueiro
+         Centro de Quimica e Bioquimica
+         Faculdade de Ciências, Universidade de Lisboa
+         Campo Grande, 1749-016 Lisboa, Portugal
+         E-mail: machuque@ciencias.ulisboa.pt
+         WWW: http://webpages.fc.ul.pt/~mamachuqueiro
+
+=======================================================================
+
+%%%%%%%%%%%%%%%%%%%% NEED UPDATE %%%%%%%%%%%%%%%%%%%%%%%
+
+Introduction:
+=============
+
+        The constant-pH Molecular Dynamics (MD) method here employed
+is the stochastic titration method developed by Baptista and
+co-workers.  For details search the references [1-4].
+        Each constant-pH MD cycle consists of three sequential steps:
+                1st) Poisson-Boltzmann/Monte Carlo (PB/MC) calculation to
+assign the solute protonation state.
+                2nd) Solvent relaxation dynamics (which allows the
+solvent to adapt to the new protonation state).
+                3rd) Dynamics of the whole system; in the end returns
+to step 1.
+        To speed up the process, it is possible to use the reduced
+titration approach: every nth cycle a fixed state is assigned to all
+the titrable sites whose mean occupancies fall outside a predefined
+threshold. This creates an exclusion list with the sites that are
+titrating too far away from the pH of interest.
+        In this implementation, the method uses proton tautomerism 
+in the PB/MC calculations. Here the word tautomer refers to a site 
+protonation state and geometry. For a better understanding search 
+reference [4-5].
+        The dynamics steps use the GROMACS 4.0.7 package. The force
+fields available are GROMOS 43A1, 53A6 and 54A7.
+        The CpHMD package is also prepared to run in parallel.
+
+Installation:
+=============
+
+        In order to use the constant-pH MD package you will need to
+install the following programs:
+
+        * GROMACS 4.0.7 (a modified version where ionic strength is
+          implemented as an external parameter is also available in
+          our website)
+        * MEAD (tested with versions 2.2.{0,5,8a,9})
+        * Delphi (tested with version V.5)
+        * meadTools2.0.1
+        * PETIT v1.6.1
+
+Organisation:
+=============
+
+        - README: This file.
+
+        - scripts: Here are the CpHMD package specific executable
+	  files.
+ 
+        - st-G54a7(_Fit): These are, the directories where the .st
+          files for G54a7 can be found.
+
+        - templates: This directory provides examples of each of the
+	  input files that should be present at the location where the
+	  CpHMD program will run.
+
+        - top: This directory contains the force fields modifications
+          to perform constant-pH MD with tautomers (G54a7pHt).
+
+Usage:
+======
+
+        CpHMD.sh <runname>.pHmdp
+
+File Formats:
+=============
+
+        * <runname>_<index>.pHmdp or <runname>.pHmdp
+             -The parameters file of CpHMD-
+
+                This file is the single argument of the CpHMD.sh
+executable and contains all the parameter information needed to run
+the program. It must be edited according to the user's needs. Take a
+copy of the example given in the templates directory, rename it and
+change the parameters while maintaining the syntax. Its name will be
+used as runname (e.g. Lyso.pHmdp generates files Lyso.edr, Lyso.gro,
+etc...and takes information from Lyso.mdp, Lyso.mgm, etc...). When
+present, the underscore functions as a separator between the runname
+and the block specific index(e.g. Lyso_001.pHmdp generates files
+Lyso_001.edr, Lyso_001.gro, etc...and takes information from Lyso.mdp,
+Lyso.mgm, etc..., which are common to the different simulation
+blocks).
+                The list of parameters follows:
+        
+                - CpHModule: it takes the values *protein* (with the
+inclusion of tautomers), *redox* (with the inclusion of tautomers 
+and redox groups), *delphi* (with the inclusion of tautomers and 
+a titrating lipid bilayer) and *dendrimer* (with the inclusion of 
+tautomers and ramified peptide dendrimers)
+
+                - ffID: It takes the value *G54a7pHt*, according to
+the force field used
+
+                - pH
+
+                - pot: Electrostatic potential in mV
+
+                - temp: Temperature in Kelvin 
+
+                - ionicstr: Ionic Strength in moles/litre
+
+                - epsin: Dielectric constant of molecular interior
+		
+		- epssol: Dielectric constant of the solvent 
+(to be used in Poisson-Boltzmann calculations) 
+
+                - seed: Monte Carlo seed used in program petit; it can 
+be used to generate different replicates.
+
+                - GridSize: This parameter is used to automatically
+generate the <runname>.ogm and <runname>.mgm files. When set to zero,
+it will be ignored and the files <runname>.ogm and <runname>.mgm are
+expected to be provided in the running directory. GridSize stands for
+the grid dimension ON_GEOM_CENT when a grid spacing of 1 is used (see
+MEAD README for more details) and it depends on the molecule's size.
+
+                - offset : Residue number offset to correct bug in
+MEAD (the value should be at least twice the number of residues in the
+protein). A value of 0 (zero) bypasses this correction and allows MEAD
+to use the whole residue as the titration site. In this case, .st
+files with pKmod values from Tanford should be used.
+
+                - Nterminus : If the N-terminus is titrating (present
+in the <runname>.sites file) this parameter will be
+ignored. Otherwise, it is important to define its state. It takes the
+values *CAP* (capped), *CAPpro* (capped proline residue), *CHG*
+(charged), *NEU* (neutral), *TAU1* (tautomer1), *TAU2* (tautomer2),
+*TAU3* (tautomer3) and *TAU4* (tautomer4). See below (Table I & II; 
+Figure 1) for tautomer assignment. In case there are multiple chains,
+the assignment should resemble something like this: 
+    	       export Nterminus=(CHG CHG)
+In this example, the first and second nontitrating Nterminus sites 
+will be assigned the charged state.
+
+                - Cterminus : The same as for Nterminus.
+
+                - RTThreshold : Reduced titration threshold. If 0,
+reduced titration will not be performed. Otherwise, if the most
+populated protonation state for a certain site is bigger than
+1-RTThreshold, this state will be attributed to this site which will
+not be titrated until the next complete titration occurs.
+
+                - RTFrequency : Reduced titration frequency; number of
+cycles between two consecutive complete titrations. Only relevant if
+RTThreshold is not 0.
+
+                - RelaxSteps : Number of steps for the solvent
+relaxation dynamics. Corresponds to nsteps in the GROMACS mdp file.
+
+                - EffectiveSteps : Number of steps for the whole
+system dynamics. Corresponds to nsteps in the GROMACS mdp file.
+
+       		- SOL1st : The name of the first solvent in the input 
+gro file (GROin). It separates the solvent block that will be relaxed 
+after the atribution of new charges to the solute (also see GROin, below).
+
+                - CpHDIR : Complete path of the CpHMD package
+directory (usually the location of this README).
+
+                - StDIR : Complete path of the .st files directory. The
+"_Fit" directory should be used together with the "offset"
+correction. The older .st files work when the offset is bypassed.
+
+                - GroDIR : Complete path of the GROMACS binaries.
+
+                - MeadDIR : Complete path of the MEAD binaries.
+
+                - DelphiDIR : Complete path to Delphi tools and binaries.
+
+                - MToolsDIR : Complete path of the meadTools1.5
+package directory (the CpHMD program is not compatible with older versions
+of meadTools).
+
+                - PetitDIR : Complete path of the PETIT package directory.
+
+                - TOPin : Topology of your system (top file). As with
+GROMACS the included files must be present in the same directory of
+the top file. This file must contain two strings delimiting the begin
+and end of the the titrable moleculetype. E.g.
+
+                ; [ begin_tit_molecule ]
+                # include "protein.itp"
+                ; [ end_tit_molecule ]
+                
+                or
+                
+                ; [ begin_tit_molecule ]
+                [ moleculetype ]
+                ...
+                ; [ end_tit_molecule ]
+
+If you wish to add ifdef statements or other definitions different
+from the default given by pdb2gmx to the titrable moleculetype, you
+should leave them after the "; [ end_tit_molecule ]" string. These
+strings delimit the part of the topology that will be allowed to
+change during the CpHMD simulations. The rest will remain the same
+throughout the simulations.
+
+                - NDXin : The index file of your system (optional).
+When the NDXin variable is left empty, an index file will be generated
+with the program make_ndx. If the file given by NDXin does not exist, 
+an index file will be generated in the same way. Though it is optional, 
+bear in mind that the index file made by the CpHMD.sh program may not 
+stand in all situations. This may cause the program to crash when running 
+grompp. In that case, please provide your own index file. It can be useful 
+when simulating in solvent mixtures, for instance.
+
+     		- PDBin : The pdb file of the system. This file is 
+necessary to know the number of protein chains and location of the 
+several N- and C-termini. The column of the chain indicator (position
+22) should be correctly filled. In the case of a single chain, the 
+column can and should be empty. This file may contain only the titrable
+molecule (protein) or the whole system. In the last case, the other 
+molecules of the system (solvent, lipid, ions, etc) should have column
+22 empty, as expected, and the protein chains should appear as a block.  
+If this variable is empty, the number of chains is considered to be one. 
+
+                - RULEin : The rule file for fix_topology to be used 
+when needed. If left blank, it will be ignored.
+
+                - PosRe : Position restraints file (itp file). If you
+do not want to use position restraints, just leave it empty.
+
+                - MembraneCenter : Name of the atom to be used as the
+membrane center (only in membrane and lipid modules).
+
+                - nCPU : Number of cpus that will run the
+simulation. When more than one, the user is responsible for launching
+the parallelisation environment (e.g. LAM) before running the CpHMD
+software.
+
+                - mdrun : Command for running mdrun. For instance,
+when using parallelisation you may want to use mdrun="mpirun C
+$GroDIR/mdrun_mpi" or mdrun="mpirun -ssi rpi tcp C $GroDIR/mdrun_mpi" 
+and when using single-processor mdrun="$GroDIR/mdrun".
+
+                - InitCycle : First cycle index. E.g.: A simulation
+with two blocks of 500 cycles -> Block 1 has InitCycle=1 and
+EndCycle=500 ; Block 2 has InitCycle=501 and EndCycle=1000. This
+allows maintaining track of simulation time.
+
+                - EndCycle : Last cycle index. See InitCycle example.
+
+                - GROin : Initial gro file. The solvent molecules should 
+appear in block in the end of the gro file, after the protein and the 
+membrane. The name of the first solvent molecule corresponds to the parameter
+SOL1st and it is used to know which part of the gro file was relaxed after
+the charge atribution to the solute.
+
+
+        * <runname>.ogm and  <runname>.mgm
+
+                These files can be provided by the user if the
+parameter GridSize in the <runname>.pHmdp is zero. Otherwise, they
+will be automatically generated. The <runname> should match the
+simulation runname which is defined by the <runname>.pHmdp file (see
+above). The format of these files is the one used by the MEAD program
+(see the MEAD README for more information).
+
+
+        * <runname>.sites
+
+                This file corresponds to the .sites file used by
+MEAD. It has to be present at the running directory, named with the
+simulation runname (see <runname>.pHmdp entry, above). You may use the
+program makesites in the meadTools1.5 package to produce this
+file. Keep in mind that when running the PB/MC calculations with
+tautomers, the .sites file must include all alternative tautomers,
+differing from the traditional format.
+
+
+        * <runname>.mdp
+
+                This file is the dynamics .mdp file. Parameters
+defined in the <runname>.pHmdp file will override parameters in the
+<runname>.mdp. The solvent must appear as "SOL" to be coherent with
+the auxiliary index file generated by the program. Again, the file
+must be named with runname (see <runname>.pHmdp entry, above) and be
+present at the running directory.
+
+Output:
+=======
+
+        * Dynamics
+        
+                The output from dynamics consists in the regular
+GROMACS files: edr, gro, log and xtc (produced by mdrun) and tpr
+(produced by grompp). The tpr file is the one produced in the last
+cycle, which means that its structure does not correspond to the
+beginning of the block.
+
+        * PB/MC
+
+                The output from the PB/MC steps is organised in two
+files: occ and mocc. When using reduced titration, additional files
+are produced - mocc_red, occ_red and occ_red_mod - which have
+essentially a debugging purpose.
+                The occ and mocc files contain respectively the output
+states from PETIT and the protonation averages of all titrating sites
+(columns) in each cycle (lines). For instance, in the first line of
+the mocc file we can find the protonation averages in the first cycle
+of each site ordered by residue number. By monitoring the occ file we
+can always know the solute's state of charge.
+                The occ_red and mocc_red are the equivalent to occ and
+mocc in the complete titration steps, when reduced titration is
+performed. The occ_red_mod contains the most populated state of each
+site in the complete titration steps.
+        
+        * Info
+
+                It is also produced a file containing information
+about the user, host and dates of each step of the simulation block -
+<runname>_<index>.info.
+
+Notes before use:
+=================
+
+	Before starting CpHMD production runs it is expected that the
+system (gro and top files) has been correctly initialised (please
+consult the GROMACS manual). It is necessary that the gro and top files 
+account for the presence of all proton positions. This can be easily 
+made by performing the GROMACS setup steps in the presence of the 
+modified constant-pH MD force field, present in the CpHMD/top directory. 
+The initial pdb file that is given to pdb2gmx must contain the names of 
+the titrable residues with the correct residue/tautomer designation (see 
+table I below). Also, when solvating/renaming your system, bear in mind 
+that the solvent has to be defined as SOL.
+
+     	In the current version, a correction is needed to have the 
+Cterminus correctly built after pdb2gmx. That correction is done on the
+top file as follows:
+
+awk 'BEGIN{top=ARGV[1]; 
+           while (getline < top) if ($5=="O1") r[++j]=$3; 
+           close(top)};
+     {for (i in r) 
+        if (r[i]==$3) 
+           {if ($5=="O")  {ga[i] = ($2=="OM") ? 22 : ($2=="OA") ? 19 : 0};
+            if ($5=="CA") ca[i]=$1; 
+            if ($5=="C") ct[i]=$1}
+     } ;
+     END{while (getline < top) 
+          {write=1;
+           for (i in r) 
+             {if ($3==r[i] && $5=="O") 
+               {print substr($0,1,34)," O2", substr($0,40);
+                write=0};
+              if (ga[i]!=0 && $1==ca[i] && $2==ct[i] && $3==((ct[i]+4)) && $5=="ga_30") 
+               {printf "%5i %5i %5i %5i %6s%2s\n",$1,$2,$3,$4, "ga_", ga[i];
+                write=0}
+             };
+           if (write) print $0}
+          }' topol.top > topol_corrected.top
+
+ 	After this correction, the top file can be used as usual in the
+following minimization/equilibration steps and, later on, it can be given
+as the input file TOPin in <runname>.pHmdp. 
+        
+	If PME is chosen over GRF/RF for long-range electrostatic
+treatment, the system should contain the correct amount of
+counter-ions that brings the total charge closer to neutrality at a
+given pH. Obviously, one needs to run a short CpHMD simulation in
+order to determine an average charge of the protein for each pH value.
+
+
+Solvent Relaxation:
+=================
+
+	After the charges being changed in the solute, the solvent
+molecules are allowed to move around it in order to find a more
+favourable configuration. In this version, this is achieved by performing
+a small MD simulation in NVT ensemble with the solute atoms freezed.
+The choice of NVT instead of NPT avoids periodic boundary conditions
+problems that may arise by fixing some atoms coordinates while changing
+the box dimensions at the same time.
+
+    	In the membrane and lipid modules, constraints=none is set as
+we expect the solvent to be water and to be constrained by SETTLE.
+
+Default settings:
+=================
+
+        PB/MC settings:
+        The molecular surface is defined by a rolling probe of radius
+1.4 angstroms and the Stern layer is 2 angstroms. The dielectric
+constant in the solvent is 80. Each cycle performs 100 000 MC steps,
+after 1000 steps of equilibration. Each MC step consists of a
+cycle of random choices of state for all sites and pairs of sites with
+a coupling above 2 pKa units.
+
+
+Additional notes and information:
+=================================
+
+Table I. Table with the residue designations for the tautomeric and 
+         the non-tautomeric assignment.
+
+-------------------------------------------------
+                    Residue designation
+ Residue  -------------------------------------  
+           tau 1  tau 2  tau 3  tau 4  Charged   
+-----------------------------------------------  
+  HIS       HI0    HI1     -      -      HI2     
+  LYS       LY0    LY1    LY2     -      LY3     
+  ARG       AR0    AR1    AR2    AR3     AR4     
+  ASP       AS0    AS1    AS2    AS3     AS4     
+  GLU       GL0    GL1    GL2    GL3     GL4     
+  CYS       CY0    CY1    CY2     -      CY3     
+  TYR       TY0    TY1     -      -      TY2     
+-------------------------------------------------
+
+
+Table II. Table with the key atom names for correct assignment.
+
+------------------------------------------------------
+                            key atoms*
+ Residue    ------------------------------------------
+             neutral    tau 1   tau 2   tau 3   tau 4
+----------  ---------  -------------------------------
+  Nter         H3        H1      H2      H3       -
+  NterP**      H2        H1      H2       -       -
+  HIS          HE2       HE2     HD1      -       -
+  LYS          HZ3       HZ1     HZ2     HZ3      -
+  ARG          HH12      HH11    HH12    HH21    HH22
+  Cter         HO        HO11    HO21    HO12    HO22
+  ASP          HD2       HD11    HD21    HD12    HD22
+  GLU          HE2       HE11    HE21    HE12    HE22
+  CYS          HG        HG1     HG2     HG3      -
+  TYR          HH        HH1     HH2      -       -
+------------------------------------------------------
+
+*  Key atoms are the positions where the proton is introduced 
+   (for the anionic sites - TYR, CYS, GLU, ASP & Cter) or 
+   removed (for the cationic sites - Nter, LYS, ARG & HIS).
+
+** NterP is the N-terminus when the first residue is
+   a proline.
+
+____________________________________________________
+
+Figure 1. Graphic representation of generic tautomeric sites.
+
+
+       H11 H21
+       |   |     
+   H12-O1  O2-H22                H2
+        \ /                      |
+         C                    H1-N-H3
+         |                       |
+  
+Carboxilic acid with    Amine with tautomer
+tautomer designation        designation    
+
+      HH1 HH2          
+        \ /
+         O                  HH12 HH22        
+         |                    |   |         
+         C              HH11-NH1 NH2-HH21    
+        / \                    \ /              
+       C   C                    CZ          
+       |   |                    |           
+       C   C                 HE-NE          
+        \ /                     |           
+         C                      CD          
+                                            
+Phenol with tautomer    Guanidinium with      
+   designation          tautomer designation
+
+
+         HG2       
+         |         
+     HG1-S-HG3              HE2             
+         |                    \             
+                              NE2 -C        
+Thiol with tautomer            |   |        
+    designation                C   ND1-HD1  
+                                \ /         
+                                 C          
+       CD -CG                    |           
+       |   |                                
+    H1-N   CB                               
+      / \ /             Imidazole ring with 
+     H2  CA             tautomer designation
+         |          
+                    
+                    
+Proline N-ter ring with 
+tautomer designation
+____________________________________________________
+
+
+References:
+=======================================================================
+
+[1] Baptista, A.M., Teixeira, V.H., Soares, C.M. (2002) "Constant-pH
+    molecular dynamics using stochastic titration", J. Chem. Phys. 117,
+    4184-4200.
+
+[2] Machuqueiro, M and Baptista, A.M. (2006) "Constant-pH molecular
+    dynamics with ionic strength effects: protonation-conformation
+    coupling in decalysine", J. Phys. Chem B 110, 2927-2933.
+
+[3] Machuqueiro, M and Baptista, A.M. (2007) "The pH-dependent
+    conformational states of kyotorphin: a constant-pH molecular dynamics
+    study", Biophys. J. 92, 1836-1845.
+
+[4] Machuqueiro, M and Baptista, A.M. (2008) "Acidic range titration of
+    HEWL using a constant-pH molecular dynamics method", Proteins Struct.
+    Funct. Bioinf., 72, 289-298.
+
+[5] Baptista, A.M., Soares, C.M. (2001) "Some theoretical and
+    computational aspects of the inclusion of proton isomerism in the
+    protonation equilibrium of proteins", J. Phys. Chem. B 105,
+    293-309.
+
+[6] Baptista, A.M., Martel, P.J., Soares, C.M. (1999) "Simulation of
+    electron-proton coupling with a Monte Carlo method: application to
+    cytochrome c3 using continuum electrostatics", Biophys. J. 76,
+    2978-2998.
+
+[7] Teixeira, V.H., Soares, C.M., Baptista, A.M. (2002) "Studies of
+    the reduction and protonation behavior of tetraheme cytochromes
+    using atomic detail", J. Biol. Inorg. Chem. 7, 200-216.
+
+[8] Martel, P.J., Soares, C.M., Baptista, A.M., Fuxreiter, M.,
+    Naray-Szabo, G., Louro, R.O., Carrondo, M.A. (1999) "Comparative
+    redox and pKa calculations on cytochrome c3 from several
+    Desulfovibrio species using continuum electrostatic
+    methods", J. Biol. Inorg. Chem. 4, 73-86.
+
+[9] Teixeira, V.H., Cunha, C.A., Machuqueiro, M., Oliveira, A.S.F.,
+    Victor, B.L., Soares, C.M., Baptista, A.M. (2005) "On the use of
+    different dielectric constants for computing individual and
+    pairwise terms in Poisson-Boltzmann studies of protein ionization
+    equilibrium", J. Phys. Chem. B 109, 14691-14706.
+
+[10] Machuqueiro, M and Baptista, A.M. (2009) "Molecular Dynamics at 
+    Constant pH and Reduction Potential: Application to Cytochrome c3", 
+    J. Am. Chem. Soc., 131, 12586-12594.
+
+=======================================================================
+

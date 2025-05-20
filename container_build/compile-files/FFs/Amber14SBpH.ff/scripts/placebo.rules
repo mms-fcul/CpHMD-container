@@ -1,0 +1,23 @@
+# Rule file for fix_topology.
+
+# Any line not starting with "bond", "angle" or "dihedral" is ignored,
+# but the best practice is to leave non-readable lines blank or start
+# them with a typical comment character, like #.
+
+# The columns in the readable lines are:
+#   1 : type of term (bond, angle or dihedral)
+#   2 : function type used by Gromacs.
+#   3 to last-1 : residuename_atomname, which may include regular expressions
+#   last : Parameters, usually a Gromacs macro (eg, gb_15) or "delete"
+
+# The columns must be separated by one or more spaces and/or tabs, as
+# the default field separator (FS) in AWK.
+
+# Equivalent definitions for bonds, angles and torsions are done
+# automatically: eg, if the bond AA-BB is defined, the bond BB-AA
+# doesn't need to be defined.
+
+
+########################################
+
+# This is a placebo file

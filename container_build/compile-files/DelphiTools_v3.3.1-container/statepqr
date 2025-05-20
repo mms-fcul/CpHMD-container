@@ -1,0 +1,252 @@
+#!/usr/bin/gawk -f
+###########################################################################
+# This file is part of meadTools, version 2.0.0.
+# 
+# Copyright (c) 2001-2012, Antonio M. Baptista, Instituto de Tecnologia
+# Quimica e Biologica, Universidade Nova de Lisboa, Portugal.
+# 
+# meadTools is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 2 of the License, or (at your
+# option) any later version.
+# 
+# meadTools is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with meadTools.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# For further details and info check the README file.
+# 
+# You can get meadTools at <http://www.itqb.unl.pt/simulation>.
+###########################################################################
+
+
+############################################################################
+# statepqr: a program to change the states of a .pqr file.
+#
+# This program reads a .pqr file and writes to stdout a new .pqr file
+# with modified charges.  These charges can correspond either to a
+# uniform reference state (eg, all neutral), to a set of individual
+# states read from a file, or to an average charge set computed from
+# state fractions read from a file.  In all cases the program needs
+# also a .sites file and the corresponding .st files.
+#
+# Note that:
+#
+# The set of states for each site is assumed to consist of several
+# neutral states and a _final_ charged state (as presently used for
+# tautomers).
+#
+# When r=n|p|d corresponds to a neutral state, the first neutral state
+# found for each site is used; use the s= option for further
+# selection.
+#
+# The treatment of non-titrable sites is not entirely satisfactory;
+# see below the comment on the definition of variable "non_titrable".
+#
+# The criterion for an "empty" H atom (when uppercase options are
+# used) is simply to have |charge|<0.001.  This may lead to the
+# undesired exclusion of H atoms which normally have zero charge; but
+# these do not exist in the charge sets distributed with meadTools.
+############################################################################
+
+
+BEGIN{
+
+  cmd = "statepqr" ;
+  usage = \
+    "Usage: "cmd" STATE_SELECTION PQR_FILE SITES_FILE [ST_DIR]\n" \
+    "STATE_SELECTION:\n" \
+    "  r=c|n|p|d           : Reference state can be charged, neutral,\n" \
+    "                        protonated, or deprotonated.\n" \
+    "  s=STATES_FILE       : File contains one line per site,\n" \
+    "                        one state (integer) per site.\n" \
+    "  f=FRACTIONS_FILE    : File contains one line per site,\n" \
+    "                        several space-separated fractions (sum=1) per site,\n" \
+    "                        one fraction (0<=real<=1) per state.\n" \
+    "The uppercase versions R=, S= and F= remove \"empty\" H atoms from the output.\n" \
+    "If no ST_DIR is given for the .st files, the current directory is assumed.\n" \
+    "The new pqr file is written to standard output."
+
+  if (ARGC != 4 && ARGC != 5) error("Wrong number of arguments.\n" usage) ;
+
+  if (ARGV[1] ~ /^(r|R)=(c|n|p|d)$/) ref_state  = substr(ARGV[1],3) ;
+  else if (ARGV[1] ~ /^(s|S)=/) filecheck(state_file = substr(ARGV[1],3)) ;
+  else if (ARGV[1] ~ /^(f|F)=/) filecheck(frac_file  = substr(ARGV[1],3)) ;
+  else error("Wrong state designation.\n" usage) ;
+  filecheck(pqr_file = ARGV[2]) ;
+  filecheck(sites_file = ARGV[3]) ;
+  if (ARGC == 5) st_dir = ARGV[4] ;
+  else st_dir = "./" ;
+  if (ARGV[1] ~ /^(R|S|F)=/) no_empty_H = 1 ;
+
+  # This is used below to decide if a site is really titrable or not. The
+  # present solution is not very good, because in the future we may want to
+  # make some of the following sites titrable. This could in principle be
+  # decided from the pKmod line of the .st files...
+  non_titrable = /^(SER|THR|HOH|H2O)/ ;
+
+  # Read sites file:
+  nsites = 0 ;
+  nNTR = nCTR = 0 ;
+  while (getline < sites_file)
+  {
+    # The site designator s is atributed either "Ntr", "Ctr", or the
+    # residue number.
+    if ($2 ~ /^NT/)
+    {
+      Ntr[$1] = ++nNTR ;
+      s = "Ntr" nNTR ;
+    }
+    else if ($2 ~ /^CT/)
+    {
+      Ctr[$1] = ++nCTR ;
+      s = "Ctr" nCTR ;
+    }
+    else
+    {
+      s = $1 ;
+    }
+    # The site index starts at 1:
+    sindex[s] = nsites++ ;
+    site[nsites] = s ;
+    ntauts[s] = NF - 1 ;
+    if ($2 ~ non_titrable) nstates[s] = ntauts[s] ;
+    else nstates[s] = ntauts[s] + 1 ;
+    for (t = 1 ; t <= ntauts[s] ; t++) st[s,t] = $(t+1) ;
+  }
+  close(sites_file) ;
+
+  # Run over all states and compute proper charges from st files:
+  for (s in ntauts)
+  {
+    for (t = 1 ; t <= ntauts[s] ; t++)
+    {
+      filecheck(st_file = st_dir "/" st[s,t] ".st") ;
+      # First read to decide if site is anionic:
+      getline < st_file ;       # read pKint value
+      tot_p = tot_d = 0 ;
+      while (getline < st_file)
+      {
+	tot_p += $3 ;
+	tot_d += $4 ;
+      }
+      anionic[s] = (tot_p^2 < tot_d^2) ;
+      close(st_file) ;
+      getline < st_file ;
+      while (getline < st_file)
+	crg[s,t,$2] = anionic[s] * $3 + (1-anionic[s]) * $4 ;
+      close(st_file) ;
+    }
+    # Any st file can be used for the charged state; the last is used.
+    if (nstates[s] == ntauts[s] + 1)
+    {
+      getline < st_file ;
+      while (getline < st_file)
+	crg[s,nstates[s],$2] = anionic[s] * $4 + (1-anionic[s]) * $3 ;
+      close(st_file) ;
+    }
+  }
+
+  # Assign reference state fractions if that option was chosen:
+  # (assumes degenerated neutral with the final state being charged)
+  if (ref_state != "")
+  {
+    for (s in ntauts)
+    {
+      for (x = 1 ; x <= nstates[s] ; x++) frac[s,x] = 0 ;
+      # If reference corresponds to charged, the final state is used:
+      if (ref_state == "c" ||  \
+	  (ref_state == "d" && anionic[s]) ||  \
+	  (ref_state == "p" && !anionic[s])) frac[s,nstates[s]] = 1 ;
+      # If reference corresponds to neutral, the first state is used:
+      # (note that this choice is arbitrary; use "f=" option for more control)
+      if (ref_state == "n" ||  \
+	  (ref_state == "p" && anionic[s]) ||  \
+	  (ref_state == "d" && !anionic[s])) frac[s,1] = 1 ;
+    }
+  }
+
+  # Read the fractions for each site if that option was chosen:
+  if (frac_file != "")
+  {
+    i = 0 ;
+    while (getline < frac_file)
+    {
+      s = site[++i] ;
+      for (x = 1 ; x <= NF ; x++) frac[s,x] = $x ;
+    }
+  }
+
+  # Read the state for each site if that option was chosen:
+  if (state_file != "")
+  {
+    i = 0 ;
+    while ((getline < state_file) > 0)
+    {
+      s = site[++i] ;
+      for (x = 1 ; x <= nstates[s] ; x++) frac[s,x] = 0 ;
+      # The "+1" is needed because petit states start at 0:
+      frac[s,$1+1] = 1 ;
+    }
+  }
+
+  # Read pqr file, change charges if needed and write again:
+  while (getline < pqr_file)
+  {
+    at = $3 ;
+    s = "" ;
+    if (Ntr[$5] != 0) s = "Ntr" Ntr[$5] ;
+    if (Ctr[$5] != 0) s = "Ctr" Ctr[$5] ;
+    # To deal with double-site residues (Ntr and Ctr), test if charge of
+    # this atom has been assigned (eg, for state 1):
+    if (crg[s,1,at] ~ /^$/) s = $5 ;
+    # The same to exclude non-site residues, which are printed immediately:
+    if (crg[s,1,at] ~ /^$/)
+      print $0 ;
+    # Stuff for actual sites:
+    else
+    {
+      c = 0 ;
+      for (x = 1 ; x <= nstates[s] ; x++) c += frac[s,x] * crg[s,x,at] ;
+      # If that is intended, discard "empty" H atoms:
+      if (no_empty_H)
+	if ($3 ~ /^H/ && c < 0.001 && c > -0.001) continue ;
+      # There is no fixed format for a pqr file. The following approach is
+      # intended to ensure that the output format is identical to the input
+      # one (nice to keep alignment). It seems to work in all cases...
+      match($0, " *"$1" *"$2" *"$3" *"$4" *"$5" *"$6" *"$7" *"$8" *"$9) ;
+      pt = RSTART + RLENGTH - length($9) ;
+      header = substr($0, 1, pt - 2 + ($9<0)) ;
+      trailer = substr($0, pt + length($9)) ;
+      sz = length($9) - ($9<0) + 1 ;
+      printf("%s%" sz "." sz-3 "f%s\n", header, c, trailer) ;
+    }
+  }
+
+}
+
+function filecheck(file)
+{
+  if (system("test -f "file))
+    error("File "file" does not exist.") ;
+  if (system("test -r "file))
+    error("File "file" exists but is not readable.") ;
+}
+
+function warning(msg)
+{
+  print cmd ": Warning: " msg | "cat 1>&2" ;
+  close ("cat 1>&2") ;
+}
+
+function error(msg)
+{
+  print cmd ": Error: " msg | "cat 1>&2" ;
+  close ("cat 1>&2") ;
+  exit 1 ;
+}
+

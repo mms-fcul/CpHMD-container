@@ -1,0 +1,75 @@
+#############################################
+
+Logbook for the modifications done for CpHMD in the container!
+Current containerized versions:
+	- CpHMD v3.3.1
+	- Delphitools v3.3.1
+	- petit 1.6.1
+	- Gromacs 2024.3
+
+#############################################
+
+#############################################
+Date: 11/04/2025
+#############################################
+
+Running outside of slurm and a tmp folder produces an absurd ammount of clutter files.
+
+- Within the CpHMD.sh script a CpH-run folder should be created in order
+to organize all data within. Folder created before entering the correct_variable cycle.
+
+
+#############################################
+Date: 08/04/2025
+#############################################
+
+Main goal to make a slurm independent CpHMD.
+Steps:
+
+ - CpHMD.sh should read the settings instead of a .pHmdp
+ - changes to the pHmdp should be made within CpHMD.sh (even if it creates a new pHmdp.
+
+ - removed chainres and revert it back to a boolean multiple_solutes. 
+ 
+** Changes made in CpHMD.sh **
+
+- changed the blockname definition from $sysname_<number> to $Sysname_CpHrun (l 42 -> 44)
+- redefined runname to be $Sysname (l.43)
+
+- passed the mdp and fixgro making inside the CpHMD.sh
+
+- added the init/end cycle correction to be done inside the CpHMD.sh (l.71|83)
+  -- Gathered the init and end cycle using the InitTime given and SimTime
+
+
+*** Creation of a default.settings to be parsed prior to user setts ***
+
+-- Removed sites line from the defaults -- 
+
+
+#############################################
+Date: 2?/03/2025
+#############################################
+
+Start of the CpHMD build in containers. Since we are inserting the files
+for FF, St, CpHMD and Delphi inside our container the first thing we did
+was to define default variables for these folders.
+
+1. if GroDIR is not defined (for external gromacs) then the container
+will default for /gromacs/bin/gmx (path within the container)
+
+2. if CpHDIR is not defined (for external CpHMD code) then the
+container will default for /CpHMD (path within the container)
+
+3. if DelphiDir is not defined (for external Delphi) then the
+container will default for /Delphi (path within the container)
+
+4. if PetitDIR is not defined (for external petit) then the container
+will default for /programs/petit (path within the container)
+
+5. if ffDIR is not defined (for external force field) then the container
+will default for /FFs_v3 (path within the container)
+
+6. if StDIR is not defined (for external Sts) then the container will
+default for /STs/St-<ffname> (path within the container)
+

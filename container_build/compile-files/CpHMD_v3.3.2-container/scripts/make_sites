@@ -1,0 +1,193 @@
+#!/bin/bash -e
+
+# Read arguments and make some assignments:
+[ $# -gt 2 ] && echo "Usage: make_sites <CpHMD settings file> <pdb file>" >&2 && exit 1
+if [ ! -f $1 ]; then
+    echo "File $1 is missing!!!... Program will crash"; exit 1;
+fi
+
+message ()
+{
+    case "$1" in
+        E ) shift; echo -e "$prog: Error: $*" >&2; exit 1;;
+        U ) shift; echo -e "$prog: Warning: $*\n$usage" >&2; exit 1;;
+        W ) shift; echo -e "$prog: Warning: $*" >&2;;
+        * ) message E "Wrong use of 'message' function.";;
+    esac
+}
+
+source $1
+
+## remove .sites if exists ##
+rm -rf ./${SysName}.sites
+
+#### Making a key array with all the titrating residue names ####
+   
+# Declare an associative array
+declare -A taudic
+
+# Process each line of the command's output
+while read -r line; do
+    key=$(echo "$line" | awk '{print $1}')
+    prefix=$(echo "$line" | awk '{print substr($1,1,2)}')
+    value=$(echo "$line" | awk -v pref=$prefix '{printf "%s%s ", pref, $2}' )
+    taudic["$key"]=$value
+done < <(ls -pa $StDIR | awk '/.st/ && !/\//' | sed 's/tau/ /;s/.st//')
+
+## Adding tautomer 0 to the dictionary ##
+for i in "${!taudic[@]}" ;do
+    tau0=`echo $i | awk '{print substr($1,1,2)0}' `
+    taudic["$i"]+=$tau0
+done
+
+##############################################################
+# Start of treatment dependent on what is on the sites line  #
+##############################################################
+if [[ $sites == *(" ") ]]; then
+    touch ./${SysName}.sites
+elif [[ $sites == "all"* ]]; then
+    ##############################################################################
+    ### Making a list of all the residues with a number in the third character ###
+    ### This is the typical CpHMD titrable residue construction
+    ### 07/05/2024 - added check to remove PJ2 from the atom list ###
+    ##############################################################################
+    if [[ $sites == "all-memb "* ]]; then
+	list=`awk '/ATOM/ {if (substr($0,20,1) ~ /^[0-9]/ && substr($0,18,3)!="NH2" ) {print substr($0,23,5)+0, substr($0,18,3) }}' $2 | uniq `
+    else
+	list=`awk '/ATOM/ {if (substr($0,20,1) ~ /^[0-9]/ && substr($0,18,3)!="NH2" && substr($0,18,3)!="PJ2" ) {print substr($0,23,5)+0, substr($0,18,3) }}' $2 | uniq `
+    fi
+    
+    ### check to avoid empty lists ###
+    if [ ! -z "$list" ] ; then
+	while read line ;do
+	    check=0
+	    ind=`echo $line | awk '{print $1}'`
+	    res=`echo $line | awk '{print $2}'`
+	    #### See if tautomer exists in array ####
+	    if [[ "${taudic[*]}" == *"$res"* ]] ; then 
+		## Get Stname ##
+		for key in "${!taudic[@]}" ; do
+		    if [[ ${taudic[$key]} == *"$res"* ]] ; then
+			stname="$key"
+			((++check))
+		    fi
+		done
+
+		tau=`ls -a $StDIR | grep $stname | sed -e 's/.st//' | awk 1 ORS=" "`
+		awk -v i="$ind" -v t="$tau" 'BEGIN{printf("%-5s%s\n",i,t)}' >> ./${SysName}_aux.sites
+	    else
+		message E  "Residue $ind $res not present in STs."
+	    fi
+	done <<< $list
+    else
+	message E  "Your pdb does not contain titrable sites. Perhaps you forgot to change the amino acid names to CpHMD nomenclature in boxmin."
+    fi   
+
+    ##############################################################################
+    ### Making a list with all selected residues in sites line 
+    ##############################################################################    
+    if [[ `echo $sites | awk '{print NF}'` > 1  ]];then
+	for ndx in `echo $sites | awk '{$1="";print}'`;do
+	    if [[ $ndx = *N ]];then
+		ind=`echo $ndx | sed 's/N//'`
+
+		## Check if first res is PRO ##
+		fres=`awk -v i=$ind '/ATOM/ && substr($0,23,5)+0==i {print substr($0,18,3)}' $2  | uniq `
+		#echo $fres $ind
+		if [[ $fres == "PRO" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		    res="NTPRO"
+		    stname="NTPRO"
+		elif [[ $fres == "GLY" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		    res="NTGLY"
+		    stname="NTGLY"
+		else
+		    res="NTR"
+    		    stname="NTR"
+		fi
+		
+	    elif [[ $ndx = *C ]];then
+		ind=`echo $ndx | sed 's/C//'`
+
+		lres=`awk -v i=$ind '/ATOM/ && substr($0,23,5)+0==i {print substr($0,18,3)}' $2  | uniq `
+		#echo $lres $ind
+		if [[ $lres == "PRO" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		    res="CTPRO"
+		    stname="CTPRO"
+		elif [[ $lres == "GLY" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		    res="CTGLY"
+		    stname="CTGLY"
+		else
+		    res="CTR"
+    		    stname="CTR"
+		fi
+	    else
+		message E  "Residue $ind $res not a terminal"
+	    fi
+	    
+	    if [[ ! -z `ls -a $StDIR | grep $stname ` ]];then
+		#echo $stname 
+		tau=`ls -a $StDIR | grep $stname | sed -e 's/.st//' | awk 1 ORS=" "`
+		#echo $tau
+		awk -v i="$ind" -v t="$tau" 'BEGIN{printf("%-5s%s\n",i,t)}' >> ./${SysName}_aux.sites
+	    else
+		message E  "Residue $ind $res not present in STs."
+	    fi		    
+	done
+    fi
+    
+    sort -nk 1 ./${SysName}_aux.sites > ./${SysName}.sites
+    rm -rf ./${SysName}_aux.sites
+        
+else    
+    for ndx in $sites;do
+	if [[ $ndx = *N ]];then
+	    ind=`echo $ndx | sed 's/N//'`
+	    ## Check if first res is PRO ##
+	    fres=`awk -v i=ind '/ATOM/ && substr($0,23,5)+0==i {print substr($0,18,3)}' $2  | uniq `
+	    if [[ $fres == "PRO" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		res="NTPRO"
+		stname="NTPRO"
+	    elif [[ $fres == "GLY" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		res="NTGLY"
+		stname="NTGLY"
+	    else
+		res="NTR"
+    		stname="NTR"
+	    fi
+	elif [[ $ndx = *C ]];then
+	    ind=`echo $ndx | sed 's/C//'`
+	    
+	    lres=`awk -v i=ind '/ATOM/ && substr($0,23,5)+0==i {print substr($0,18,3)}' $2  | uniq `
+	    if [[ $lres == "PRO" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		res="CTPRO"
+		stname="CTPRO"
+	    elif [[ $lres == "GLY" ]] && [[ $ffID == Amber14SBpH ]] ;then
+		res="CTGLY"
+		stname="CTGLY"
+	    else
+		res="CTR"
+    		stname="CTR"
+	    fi
+	else
+	    ind=$ndx
+	    res=`awk -v i=$ndx 'substr($0,23,5)+0==i && substr($0,18,3)!="SOL" {a=substr($0,18,3)}END{print a}' $2`
+	    if [[ "${taudic[*]}" == *"$res"* ]] ; then 
+		## Get Stname ##
+		for key in "${!taudic[@]}" ; do
+		    if [[ ${taudic[$key]} == *"$res"* ]] ; then
+			stname="$key"
+		    fi
+		done
+	    fi  
+	fi
+
+	
+	if [[ ! -z `ls -a $StDIR | grep $stname ` ]]
+	then
+	    tau=`ls -a $StDIR | grep $stname | sed -e 's/.st//' | awk 1 ORS=" "`
+	    awk -v i="$ind" -v t="$tau" 'BEGIN{printf("%-5s%s\n",i,t)}'  >> ./${SysName}.sites
+	else
+	    message E  "Residue $ind $res not present in STs."
+	fi
+    done
+fi

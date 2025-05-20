@@ -1,0 +1,24 @@
+# Molecular definitions file.
+# All lines not starting with the following characters are ignored:
+#   G : group name definition, followed by its molecule definitions.
+#       a : molecule defined by atom (ordinal) index range.
+#       n : molecule(s) defined by residue name.
+#       g : molecules(s) defined through previously defined group.
+#   A : group for assemblage stage, one line per (sequential) stage.
+#   C : groups to be centered along the three box vectors (a,b,c or v1,v2,v3).
+
+G Protein
+a 1 1367
+
+#G Solvent
+#n SOL
+
+# Groups to be (sequentially) assembled:
+A Protein
+
+# Groups to be centered along each of the three box vectors:
+C Protein Protein Protein
+
+# Use PBC (1) or not (0) along each of the three box vectors:
+P 1 1 1
+

@@ -1,0 +1,55 @@
+##################################################################
+#
+# Rule file for fix_topology.
+#
+# Any line not starting with "bond", "angle" or "dihedral" is ignored,
+# but the best practice is to leave non-readable lines blank or start
+# them with a typical comment character, like #.
+#
+# The columns in the readable lines are:
+#   1 : type of term (bond, angle or dihedral)
+#   2 : function type used by Gromacs.
+#   3 to last-1 : residuename_atomname, which may include regular expressions
+#   last : Parameters, usually a Gromacs macro (eg, gb_15) or "delete"
+#
+# The columns must be separated by one or more spaces and/or tabs, as
+# the default field separator (FS) in AWK.
+#
+# Equivalent definitions for bonds, angles and torsions are done
+# automatically: eg, if the bond AA-BB is defined, the bond BB-AA
+# doesn't need to be defined.
+#
+##################################################################
+
+# Define macros:
+define   (:pi:)   (PI0|PI1|PI2|PI3|PI4|PI5|PI6)
+define   (:pj:)   (PJ0|PJ1|PJ2)
+define   (:phos:)   ((:pi:)|(:pj:))
+define   (:tails:)   (DMX|POX)
+define   (:heads:)   (CHL|ETA)
+#
+# Bonds:
+bond      2    (:tails:)_CD     (:phos:)_OD   gb_18
+bond      2    (:heads:)_CB     (:pj:)_CA     gb_27
+#
+# Pair delete:
+# pair      1    PYR_CG    (:ss:)_CA1 delete
+#
+# Bond angles:
+angle     2   (:tails:)_CD    (:phos:)_OD   (:phos:)_P   ga_26
+angle     2   (:tails:)_CE    (:tails:)_CD        (:phos:)_OD  ga_15
+angle     2   (:heads:)_CB    (:pj:)_CA     (:pj:)_OA    ga_15
+angle     2   (:heads:)_NTM    (:heads:)_CB       (:pj:)_CA    ga_15
+
+# Proper dihedrals (torsions):
+dihedral  1   (:tails:)_CD    (:phos:)_OD   (:phos:)_P   (:phos:)_OA gd_20
+dihedral  1   (:tails:)_CD    (:phos:)_OD   (:phos:)_P   (:phos:)_OA gd_27
+dihedral  1   (:tails:)_CE    (:tails:)_CD        (:phos:)_OD  (:phos:)_P  gd_29
+dihedral  1   (:tails:)_CZ    (:tails:)_CE         (:tails:)_CD      (:phos:)_OD gd_34
+dihedral  1   (:heads:)_CB    (:pj:)_CA       (:pj:)_OA    (:pj:)_P    gd_29
+dihedral  1   (:heads:)_NTM   (:heads:)_CB    (:pj:)_CA    (:pj:)_OA   gd_4
+dihedral  1   (:heads:)_NTM   (:heads:)_CB    (:pj:)_CA    (:pj:)_OA   gd_36
+dihedral  1   (:heads:)_CN1   (:heads:)_NTM   (:heads:)_CB (:pj:)_CA   gd_29
+
+# Improper dihedrals:
+# dihedral  2   TPB_CB     TPB_CA1    TPB_CG1    (:ss:)_CA1   gi_1c

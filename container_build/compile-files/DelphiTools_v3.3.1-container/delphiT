@@ -1,0 +1,467 @@
+#!/bin/bash -e
+
+prog=`basename $0` 
+
+usage="\
+Usage: $prog <n_cpus> <run_name> <dimension>\n
+    n_cpus: Number of requested same-host CPUs (cores).
+            Use 1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 48 or 64 cpus.
+    run_name: filename without extension (.sites or .pqr).
+    dimension: 2 or 3\n"
+
+message ()
+{
+    case "$1" in
+	E ) shift; echo ; echo -e "$prog: Error: $*" >&2; echo -e "$prog: Error: $*" >>${rdir}/${blockname}.blockinfo ; exit 1;;
+	U ) shift; echo ; echo -e "$prog: Warning: $*\n$usage" >&2; exit 1;;
+	W ) shift; echo ; echo -e "$prog: Warning: $*" >&2;;
+	* ) message E "Wrong use of 'message' function.";;
+    esac
+}
+
+#
+############    START COMMON STUFF    ############
+#
+
+###  Parse arguments
+if [ $# -ne 3 ]; then 
+  message U "Wrong number of arguments."
+fi
+if [ $# -eq 3 ] ; then 
+  if [ $3 = "3" ] ; then 
+      dimension=3
+      message W "Going to calculate in 3D."
+      echo "export pbz=true" >> DELPHI.pbp
+  elif [ $3 = "2" ] ; then 
+      dimension=2
+      message W "Going to calculate in 2D."
+  elif [ $3 = "0" ] ; then 
+      dimension=0
+      message W "Going to calculate without PBC."
+  else message U "Wrong definition of dimension."
+  fi
+fi
+
+message W "Offset used inside DelphiT is $offset"
+
+###  Prepare & Read Simulation Parameters and run name (sites and pqr)
+source ./DELPHI.pbp
+if [ -f USER.pbp ]; then
+    source ./USER.pbp
+fi
+ncpus=$1
+run_n=$2
+
+###  Keep cpu number ... just in case
+cpun=$ncpus
+
+###  Check if number of cores is multiple of 2 (or different from 
+##  the list below and given on top), if not break
+
+#mult=`echo "scale=0;($ncpus%2)" |bc`
+
+if [ $ncpus -eq 1 ]; then mult=0; fi
+#if [ $mult -ne 0 ]; then message U "Use multiple of 2 for ncpus."; fi
+
+for i in 34 36 38 40 42 44 46 50 52 54 56 58 60 62 ; do 
+  if [ $ncpus -eq $i ]; then message U "Use 1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 48 or 64 cpus." ; fi
+done
+if [ $ncpus -gt 64 ]; then message U "Use 1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 48 or 64 cpus." ; fi
+
+### Starting calculation of delphi in new dir
+mkdir delphiT$$
+cd delphiT$$
+
+###  Getting the "protein" with trjconv PBC mol
+echo -e "Protein" | ${GroDIR} trjconv -f ../TMP_${run_n}.gro -s ../TMP_CpHMD.tpr \
+     -n ../TMP_CpHMD.ndx -o TMP_auxD1.gro -pbc mol -quiet
+
+###  Make links temporarily to run geom_center (Check the C-terminal)
+##  When C-terminal exists, the name of some atoms in the gro file do
+##     not match the ones on st FILES
+ln -s ../*.st .
+
+if [[ $dimension -eq 2 ]] ; then
+###  Getting the x box vector 
+  boxsizex=`tail -n 1 ../TMP_${run_n}.gro |awk '{print $1}'`
+elif [[ $dimension -eq 0 ]] ; then
+  boxsizex="-1"
+fi
+
+#### Correct the name of the N-ter and C-ter residues if they exist in sites FILE
+${DelphiDir}/gromodels ${offset} TMP_auxD1.gro ../${run_n}.sites
+
+###  Finding the geometric center of each site
+${DelphiDir}/geom_center ../${run_n}_mod.sites TMP_auxD1_mod.gro ${cutoff} ${boxsizex} ${dimension}
+
+###  Changing name of atoms in CTR to conform with PQR
+if [ -f CTRtau1.st ] && [[ $ffID == G54a7pH ]] ; then
+  for f in CTR*.st ; do
+    rm $f
+    sed 's/ C  / CT /g
+         s/ O1  / OT1 /g
+         s/ O2  / OT2 /g' ../${f} >$f
+  done
+fi
+
+###  Get total number of sites and change ncpus if needed:
+  n=$(($(wc -l < ../${run_n}.sites)))
+  [ $ncpus -gt $n ] && ncpus=$n &&
+    message W "Requested #CPUs > #psites. #CPUs changed to $n."
+
+###  Compute site range for each CPU 
+  for (( cpu=0 ; cpu<$ncpus ; cpu++ )); do
+    first=$((${last:=0} + 1))
+    last=$(($first + ($n-$last)/($ncpus-$cpu) - !(($n-$last)%($ncpus-$cpu))))
+    min[$cpu]=$first
+    max[$cpu]=$last
+    echo "Site range for CPU $cpu :  ${min[$cpu]}-${max[$cpu]}"
+  done
+
+### small hack to get a modded sites file needed before we enter the cycle.
+## Adition to deal with CpHMD when topology files are
+## given with includes. In this case instead of creating
+## a block on the FF we introduced the parameters from ATB
+## in the topology through include, so we need to treat makepqr
+  if [[ $include_itp == 1 ]]
+  then
+      echo "Doing makepqr with topology with includes"
+      awk -v cut=`awk '$1=="SOL" {print NR}' ../TMP_processed.top |  tail -n 1` 'NR<cut' ../TMP_processed.top > ../TMP_pqr.top
+      
+      ${DelphiDir}/makepqr W 2RT ../TMP_pqr.top ../TMP_pqr.top TMP_auxD1.gro > TMP_auxD1.pqr
+  else
+      echo "Doing makepqr without topology with includes" 
+      ${DelphiDir}/makepqr W 2RT ${ffDIR}/${ffID}.ff/ffnonbonded.itp ../TMP_CpHMD_charge.top TMP_auxD1.gro >TMP_auxD1.pqr
+  fi
+  ${DelphiDir}/stmodels ${offset} TMP_auxD1.pqr ../${run_n}.sites
+mv ../${run_n}_stmod.sites TMP_auxD1.sites
+
+#
+############    END COMMON STUFF    ############
+#
+
+
+if [[ $dimension -eq 2 ]] ; then
+###  Getting the box vectors from initial gro file
+##  Getting vectors from other gro files should be the same
+  boxsizex10=`tail -n 1 ../TMP_${run_n}.gro |awk '{print $1*10}'`
+  boxsizez10=`tail -n 1 ../TMP_${run_n}.gro |awk '{print $3*10}'`
+
+###  Half box vector in X or Y is
+  HalfsizeXY=`echo "scale=6;($boxsizex10/2)/10" |bc`
+
+### small hack to increase Z-size of box and avoid solute bond breaking
+### in PBC atom step 
+  head -n -1 TMP_auxD1.gro >TMP_auxD1_largeZ.gro
+  tail -n 1 TMP_auxD1.gro | awk '{printf "%s %8.5f\n",  substr($0,1,21),$3*3}' \
+      >> TMP_auxD1_largeZ.gro
+
+###  Using a fixed number of points and the box vectors from GMX, find scale
+##  for big system box, for focus and update DELPHI.pbp
+
+sclP=`echo $((gsizeP-1)) |awk -v dim=$boxsizex10 '{printf("%.10f",$1/dim)}'`
+sclM=`echo "$sclP" | awk '{print int(4/$1+0.5)*$1}'`
+
+###  Updating scale value for the big system box
+sed -i "s/export scaleP=[0-9].[0-9]*/export scaleP=$sclP/;s/export scaleM=[0-9].[0-9]*/export scaleM=$sclM/" ../DELPHI.pbp 
+
+###  Generates pqr and sites file for each site
+### Starts by centering each site in the box/layer
+for (( cpu=0 ; cpu<$ncpus ; cpu++ )); do
+(
+
+  for (( i=${min[$cpu]} ; i<=${max[$cpu]} ; i++ )); do
+
+    snX=`tail -n +$i cent | awk 'NR==1 {print $2}'`
+    snY=`tail -n +$i cent | awk 'NR==1 {print $3}'`
+    snZ=`tail -n +$i cent | awk 'NR==1 {print $4}'`
+    sn=`nl cent |awk -v x=$snX -v y=$snY -v z=$snZ '{if ($3==x && $4==y && $5==z) print $1}'`
+    echo "Processing site ${sn}"
+###  Getting X and Y coordinate from site geometric center to center the box
+    XCoor=`awk -v s=${sn} -v h=${HalfsizeXY} 'NR==s{print h-$2}' cent`
+    YCoor=`awk -v s=${sn} -v h=${HalfsizeXY} 'NR==s{print h-$3}' cent`
+    ZCoor=`echo "scale=6;($boxsizez10)/10" |bc`
+
+    ${GroDIR} editconf -f TMP_auxD1_largeZ.gro -o TMP_aux${i}.gro \
+	      -translate ${XCoor} ${YCoor} ${ZCoor} -quiet
+    
+    echo -e "Protein" | ${GroDIR} trjconv -f TMP_aux${i}.gro -s ../TMP_CpHMD.tpr \
+				 -n ../TMP_CpHMD.ndx -o TMP_delphi${sn}.gro -pbc atom -quiet
+
+    ###  Creating pqr and sites file for each site
+    if [[ $include_itp == 1 ]]
+    then
+	echo "Doing makepqr with topology with includes"	
+	${DelphiDir}/makepqr W 2RT  ../TMP_pqr.top ../TMP_pqr.top TMP_delphi${sn}.gro >TMP_aux${sn}.pqr
+    else
+	echo "Doing makepqr without topology with includes"
+	${DelphiDir}/makepqr W 2RT ${ffDIR}/${ffID}.ff/ffnonbonded.itp ../TMP_CpHMD_charge.top TMP_delphi${sn}.gro >TMP_aux${sn}.pqr
+    fi
+    
+    awk -v a=${sn} 'NR==a' ../${run_n}.sites >TMP_delphi${sn}.sites
+    ${DelphiDir}/statepqr r=c TMP_aux${sn}.pqr TMP_delphi${sn}.sites >TMP_delphi${sn}.pqr
+    rm -f TMP_aux${i}.gro TMP_delphi${sn}.gro TMP_aux${sn}.pqr
+### Changing residue number and name 
+    ${DelphiDir}/stmodels ${offset} TMP_delphi${sn}.pqr ../${run_n}.sites
+    awk -v a=${sn} 'NR==a' TMP_auxD1.sites >TMP_delphi${sn}_stmod.sites
+###  Adding a slice in each X and Y side of the system using the GMX box 
+##  vector. The percentage is 5%
+    ${DelphiDir}/slice.awk TMP_delphi${sn}_stmod.pqr $boxsizex10,$boxsizex10,$boxsizez10 ${slice} TMP_delphi${sn}_Add.pqr ${dimension}
+
+  done
+
+  echo "CPU $cpu finished processing sites at $(date +%T)"
+) &
+done
+
+echo "Waiting for all CPUs to finish processing sites ..."
+wait
+echo "All CPUs finished processing sites at $(date +%T)"
+
+
+elif [[ $dimension -eq 0 ]] ; then
+
+###  Generates pqr and sites file for each site
+### Starts by centering each site in the box/layer
+for (( cpu=0 ; cpu<$ncpus ; cpu++ )); do
+(
+
+  for (( i=${min[$cpu]} ; i<=${max[$cpu]} ; i++ )); do
+
+    snX=`tail -n +$i cent | awk 'NR==1 {print $2}'`
+    snY=`tail -n +$i cent | awk 'NR==1 {print $3}'`
+    snZ=`tail -n +$i cent | awk 'NR==1 {print $4}'`
+    sn=`nl cent |awk -v x=$snX -v y=$snY -v z=$snZ '{if ($3==x && $4==y && $5==z) print $1}'`
+    echo "Processing site ${sn}"
+
+    ###  Creating pqr and sites file for each site
+    if [[ $include_itp == 1 ]]
+    then
+	echo "Doing makepqr with topology with includes"
+	${DelphiDir}/makepqr W 2RT  ../TMP_pqr.top ../TMP_pqr.top TMP_auxD1.gro > TMP_aux${sn}.pqr
+    else
+	echo "Doing makepqr without topology with includes"
+	${DelphiDir}/makepqr W 2RT ${ffDIR}/${ffID}.ff/ffnonbonded.itp ../TMP_CpHMD_charge.top TMP_auxD1.gro >TMP_aux${sn}.pqr
+    fi
+
+    awk -v a=${sn} 'NR==a' ../${run_n}.sites >TMP_delphi${sn}.sites
+    ${DelphiDir}/statepqr r=c TMP_aux${sn}.pqr TMP_delphi${sn}.sites >TMP_delphi${sn}.pqr
+    rm -f TMP_aux${sn}.pqr
+### Changing residue number and name 
+    ${DelphiDir}/stmodels ${offset} TMP_delphi${sn}.pqr ../${run_n}.sites
+    awk -v a=${sn} 'NR==a' TMP_auxD1.sites >TMP_delphi${sn}_stmod.sites
+
+  done
+
+  echo "CPU $cpu finished processing sites at $(date +%T)"
+) &
+done
+
+echo "Waiting for all CPUs to finish processing sites ..."
+wait
+echo "All CPUs finished processing sites at $(date +%T)"
+
+fi
+
+
+###
+############    START PARTIAL COMMON STUFF    ############
+###
+
+
+###  Make folder for calculations
+/bin/rm -rf tmp ; /bin/mkdir tmp
+
+###  Entering calculations folder and making initializations
+cd tmp/
+
+ln -s ../*.st .
+
+## Removed the delphidir database copy and added a link to the make_delphi_DB created before
+
+if [ -f ../../CRG_FILE ] ; then    
+    cp -f ${DelphiDir}/{averaging_g.awk,calc_pkg_low,delphi_pgf90,gen_files.awk} .
+    ln -s ../../DataBaseT* .
+    ln -s ../../CRG_FILE .
+else
+    cp -f ${DelphiDir}/{averaging_g.awk,calc_pkg_low,CRG_FILE,DataBaseT*,delphi_pgf90,gen_files.awk} .
+fi
+
+    
+if [[ $dimension -eq 2 ]] ; then
+### Correct Z coordinate of "cent" to deal with Z-enlarged .gro files
+  awk -v dimZ=$boxsizez10 '{print $1, $2, $3, $4+(dimZ/10)}' ../cent > cent_z-corrected
+
+###  Generate files running one GenFileTF for each site
+for (( cpu=0 ; cpu<$ncpus ; cpu++ )); do
+(
+
+  for (( i=${min[$cpu]} ; i<=${max[$cpu]} ; i++ )); do
+
+    ftmp1=`tail -n +$i ../../${run_n}.sites | awk 'NR==1 {print $1}'`
+    ftmp2=`tail -n +$i ../../${run_n}.sites | awk 'NR==1 {print $2}'`
+    file=`nl ../../${run_n}.sites | awk -v a=$ftmp1 -v b=$ftmp2 '{if ($2==a && $3==b) print $1}'`
+    printf "Generating site %4d on CPU %d at %8s\n" \
+	$file $cpu $(date +%T)
+    ./gen_files.awk ../TMP_delphi${file}_stmod.sites ../TMP_delphi${file}_Add.pqr \
+	CRG_FILE ../../DELPHI.pbp $boxsizex10,$boxsizex10,$boxsizez10 cent_z-corrected ${dimension}
+  done
+
+  echo "CPU $cpu finished generating files at $(date +%T)"
+) &
+done
+
+echo "Waiting for all CPUs to finish generating files ..."
+wait
+echo "All CPUs finished generating files at $(date +%T)"
+
+elif [[ $dimension -eq 0 ]] ; then
+
+###  Generate files running one GenFileTF for each site
+for (( cpu=0 ; cpu<$ncpus ; cpu++ )); do
+(
+
+  for (( i=${min[$cpu]} ; i<=${max[$cpu]} ; i++ )); do
+
+    ftmp1=`tail -n +$i ../../${run_n}.sites | awk 'NR==1 {print $1}'`
+    ftmp2=`tail -n +$i ../../${run_n}.sites | awk 'NR==1 {print $2}'`
+    file=`nl ../../${run_n}.sites | awk -v a=$ftmp1 -v b=$ftmp2 '{if ($2==a && $3==b) print $1}'`
+    printf "Generating site %4d on CPU %d at %8s\n" \
+	$file $cpu $(date +%T)
+    ./gen_files.awk ../TMP_delphi${file}_stmod.sites ../TMP_delphi${file}_stmod.pqr \
+	CRG_FILE ../../DELPHI.pbp -1,-1,-1 ../cent ${dimension}
+  done
+
+  echo "CPU $cpu finished generating files at $(date +%T)"
+) &
+done
+
+echo "Waiting for all CPUs to finish generating files ..."
+wait
+echo "All CPUs finished generating files at $(date +%T)"
+
+
+fi
+
+###  Gathering number of pseudo states from model to run. 
+##  Actual number of runs is 3 times higher (because of focus)
+ls [0-9]*.prm |awk '{a=length($1);printf("%s\n",substr($1,1,a-4))}' >TMP_tau.list
+np=$(($(wc -l <TMP_tau.list)))
+
+echo "There are $np calculations to make"
+###  Compute pseudo state range for each CPU 
+for (( cpu=0 ; cpu<$cpun ; cpu++ )); do
+  firstp=$((${lastp:=0} + 1))
+  lastp=$(($firstp + ($np-$lastp)/($cpun-$cpu) - !(($np-$lastp)%($cpun-$cpu))))
+  minp[$cpu]=$firstp
+  maxp[$cpu]=$lastp
+  echo "Pseudostate range for CPU $cpu :  ${minp[$cpu]}-${maxp[$cpu]}"
+done
+
+###  Running delphi
+for (( cpu=0 ; cpu<$cpun ; cpu++ )); do
+(
+
+  for (( i=${minp[$cpu]} ; i<=${maxp[$cpu]} ; i++ )); do
+
+    pstate=`tail -n +$i TMP_tau.list | head -n 1`
+    printf "Pseudo state %15s starting on CPU %d at %8s\n" \
+	$pstate $cpu $(date +%T)
+    ./delphi_pgf90 P_${pstate}b.prm >P_${pstate}b.out
+    ./delphi_pgf90 P_${pstate}f.prm >P_${pstate}.out
+    ./delphi_pgf90 ${pstate}.prm >${pstate}.out
+
+  done
+
+  echo "CPU $cpu finished delphi runs at $(date +%T)"
+) &
+done
+
+echo "Waiting for all CPUs to finish delphi calculations ..."
+wait
+echo "All CPUs finished running delphi at $(date +%T)"
+
+
+
+###  Gathering solvation energy
+egrep "corrected reaction" *[NC].out |awk '{a=length($1);printf("%s %.6f\n",substr($1,1,a-5),$6/2.30259)}' >../Solvation
+
+####  Retrieve interactions to be calculated
+rm -f Calc_Inter; touch Calc_Inter
+lines=`egrep "x" ../List_Inter |wc -l`
+if [ $lines -eq 0 ] ; then 
+  echo "There are no pairwise interactions to calculate!"
+else
+  egrep "x" ../List_Inter >Calc_Inter
+fi
+
+### Generate a pqr file with all sites in sites file in the reference state
+#${MToolsDIR}/statepqr r=c ../TMP_delphi`awk 'NR==1{print $1}' ../../${run_n}.sites`_stmod.pqr ../../${run_n}_stmod.sites >Ref.pqr
+${DelphiDir}/statepqr r=c ../TMP_delphi1_stmod.pqr ../../${run_n}_stmod.sites >Ref.pqr
+
+###  Calculating pkint
+${DelphiDir}/calc_pkg_low ../TMP_auxD1.sites Ref.pqr ../Solvation Calc_Inter ../Back_list ../../TMP_delphi.crg yes ${temp} ${run_n}
+
+### Add check to output an error if pkint above 100! ######
+### This most likely indicates a problem in the calculation that should be stopped!
+n_pkint=`awk '$1>100 || $1<-100 {s++}END{print s+0}' ./${run_n}.pkint `
+if [ $n_pkint -gt 0 ] ; then
+
+    resprob=`awk '$1>100 || $1<-100 {printf"%s  ", $3}' ./${run_n}.pkint ` 
+    
+    message E "pkint values are too large on residues $resprob. This usually means calc_pkg_low did not go well and pkas are not reliable. Please recheck"
+    
+    exit 1
+fi
+
+############## add 06/11/2023 ###################################
+#### Check to make sure Contributions were correctly calculated ####
+## Will average second column of the Contributions file and if avg == 0 will crash ##
+if [ -f ./Contributions ]; then
+    avg_check=`awk '{s+=$2;n++}END{print s/n}' ./Contributions `
+    if [ "$avg_check" == 0 ] ;then
+	message E "Contributions file is 0, something is wrong with the databases. Please recheck"
+    fi
+else
+    message E "Contributions still not here"   
+fi
+
+###  Correct residue number
+awk -v off=${offset} '{match($0,/([^ ]+ +[^ ]+)( +[^-]+)([^ ]+)( +[^ ]+)/,a); printf("%s%s-%d %d\n",a[1],a[2],-a[3]-(off*(1+($3~/^NT/)+1*($3~/^CT/))+(500*($3~/^CT/))),a[4])}' ${run_n}.pkint > ../../${run_n}.pkcrg
+
+###  Getting all sites not calculated, averaging the calculated and 
+### Sort all out
+awk '$3!="x"{printf("%d %d %15.6e\n",$1,$2,$3)}' ../List_Inter >List_01.g 
+lines=`cat ${run_n}.g |wc -l`
+if [ $lines -eq 0 ] ; then
+  touch Inter_from_AVX.g
+else 
+  ./averaging_g.awk ${run_n}.g Inter_from_AVX.g
+fi
+cat List_01.g Inter_from_AVX.g |sort -k 1n -k 2n >../../${run_n}.g
+
+cd ../../
+
+###  Check errors in PB convergence
+for i in delphiT$$/tmp/*.out
+do
+    file=`echo $i | sed "s/delphiT$$\/tmp\///"`
+awk '$2=="WARNING:" && $3=="no" && $5=="record"' ${i} >>ERROR
+grep --before-context=1 "finished qdiffx" ${i} | \
+    awk -v file=$file 'NR==1 {if ($2>0.1 || $1 == "NaN" || $1 == "Inf" || $2 == "NaN" || $2 == "Inf" || $2 == 0 ){printf "%s%s\n",file,":One PB calculation did not converge. Check relaxation parameters!"}}' >>ERROR
+
+##### Added a line to output into .serr the error warning explaining the sim as crashed in delphi cycle #######
+
+
+done
+
+if [[ -s ERROR ]]
+then
+    cp -rf ERROR $rdir/
+message E "Some error occured in the end of a delphiT run. Check ERROR file in temporary directory!"
+exit 1
+fi
+
+###  Delete auxiliar files
+nice -n 19 /bin/rm -rf delphiT$$ &
+

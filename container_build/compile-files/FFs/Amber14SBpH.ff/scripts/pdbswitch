@@ -1,0 +1,97 @@
+#!/usr/bin/awk -f
+
+BEGIN{
+  cmd = "pdbswitch" ;
+  if (ARGV[1] !~ /^(0|1)/)
+    error("First argument must be 1 (tautomers) or 0 (no tautomers)") ;
+  taut    = ARGV[1] ;
+  mcrpout = ARGV[2] ;
+  pdbfile = ARGV[3] ;
+  define_states() ;
+  nsites = 0 ;
+  while (getline < mcrpout)
+  {
+    if ($0 ~ /^>/ && $2 !~/(NT|CT)/)
+    {
+      numb[$3] = substr($2,index($2,"-")+1) ;
+#     type[numb[$3]] = substr($2,1,3) ;
+      type[numb[$3]] = substr($2,1,2) ; # changed to work with  PA and PD, SC 20-12-2011
+      if(taut == 0 && type[numb[$3]] == "HIS")
+	error("HIS not supported in non-tautomer mode.") ;
+    }
+    if ($0 ~ /^f/)
+    {
+      for (i = 2 ; i <= NF ; i++)
+	if (type[numb[i-2]] != "") state[numb[i-2]] = $i ;
+    }
+  }
+  while (getline < pdbfile)
+  {
+      # $5 substituted by i=substr($0,23,4)#SC 15-11-2011
+      i=substr($0,23,4)*1 ; #SC 15-11-2011
+      if (type[i] != "") #SC 15-11-2011
+	  print substr($0,1,17) s[type[i],state[i]] substr($0,22) ; #SC 15-11-2011
+      else print $0 ;
+  }
+}
+
+
+function define_states()#copied from groswitch, SC 20-12-2011
+{
+  if (taut)
+  {
+    # Set of states to use when *only* HIS has tautomers (ie, petit use):
+    s["TY",0] = "TY0 " ;  s["TY",1] = "TY1 " ;  s["TY",2] = "TY2 " ;
+    s["AR",0] = "AR0 " ;  s["AR",1] = "AR1 " ;  s["AR",2] = "AR2 " ;  s["AR",3] = "AR3 " ;  s["AR",4] = "AR4 " ;
+    s["AS",0] = "AS0 " ;  s["AS",1] = "AS1 " ;  s["AS",2] = "AS2 " ;  s["AS",3] = "AS3 " ;  s["AS",4] = "AS4 " ;
+    s["GL",0] = "GL0 " ;  s["GL",1] = "GL1 " ;  s["GL",2] = "GL2 " ;  s["GL",3] = "GL3 " ;  s["GL",4] = "GL4 " ;
+    s["LY",0] = "LY0 " ;  s["LY",1] = "LY1 " ;  s["LY",2] = "LY2 " ;  s["LY",3] = "LY3 " ;
+    s["CY",0] = "CY0 " ;  s["CY",1] = "CY1 " ;  s["CY",2] = "CY2 " ;  s["CY",3] = "CY3 " ;
+    s["HI",0] = "HI0 " ;  s["HI",1] = "HI1 " ;  s["HI",2] = "HI2 " ;
+    s["PA",0] = "PA0 " ;  s["PA",1] = "PA1 " ;  s["PA",2] = "PA2 " ;  s["PA",3] = "PA3 " ;  s["PA",4] = "PA4 " ;
+    s["PD",0] = "PD0 " ;  s["PD",1] = "PD1 " ;  s["PD",2] = "PD2 " ;  s["PD",3] = "PD3 " ;  s["PD",4] = "PD4 " ;
+    s["HE",0] = "HMCR" ;  s["HE",1] = "HMCO" ;
+    s["CL",0] = "DMC0" ;  s["CL",1] = "DMC1" ;  s["CL",2] = "DMC2" ;  s["CL",3] = "DMC3" ;  s["CL",4] = "DMC4" ;  s["CL",5] = "DMC5" ;  s["CL",6] = "DMC6"  ;
+    s["GD",0] = "GD0 " ;  s["GD",1] = "GD1 " ;  s["GD",2] = "GD2 " ;  s["GD",3] = "GD3 " ;  s["GD",4] = "GD4 " ;
+    s["AC",0] = "AC0 " ;  s["AC",1] = "AC1 " ;  s["AC",2] = "AC2 " ;  s["AC",3] = "AC3 " ;  s["AC",4] = "AC4 " ;
+    s["OL",0] = "OL0 " ;  s["OL",1] = "OL1 " ;  s["OL",2] = "OL2 " ;  s["OL",3] = "OL3 " ;  s["OL",4] = "OL4 " ;
+    s["Ol",0] = "OL0 " ;  s["Ol",1] = "OL1 " ;  s["Ol",2] = "OL2 " ;  s["Ol",3] = "OL3 " ;  s["Ol",4] = "OL4 " ;
+    s["BA",0] = "BA0 " ;  s["BA",1] = "BA1 " ;  s["BA",2] = "BA2 " ;  s["BA",3] = "BA3 " ;
+    s["DA",0] = "DA0 " ;  s["DA",1] = "DA1 " ;  s["DA",2] = "DA2 " ;
+    s["DX",0] = "DA0 " ;  s["DX",1] = "DA1 " ;  s["DX",2] = "DA2 " ;
+    s["PJ",0] = "PJ0 " ;  s["PJ",1] = "PJ1 " ;  s["PJ",2] = "PJ2 " ;
+    s["PI",0] = "PI0 " ;  s["PI",1] = "PI1 " ;  s["PI",2] = "PI2 " ;  s["PI",3] = "PI3 " ;  s["PI",4] = "PI4 " ;  s["PI",5] = "PI5 " ;  s["PI",6] = "PI6 " ;
+    s["IP",0] = "IP0 " ;  s["IP",1] = "IP1 " ;  s["IP",2] = "IP2 " ;  s["IP",3] = "IP3 " ;
+    s["IS",0] = "IS0 " ;  s["IS",1] = "IS1 " ;  s["IS",2] = "IS2 " ;
+    s["IT",0] = "IT0 " ;  s["IT",1] = "IT1 " ;
+    s["MT",0] = "MT0 " ;  s["MT",1] = "MT1 " ;  s["MT",2] = "MT2 " ;
+    s["MA",0] = "MA0 " ;  s["MA",1] = "MA1 " ;  s["MA",2] = "MA2 " ;  s["MA",3] = "MA3 " ;  s["MA",4] = "MA4 " ;
+    s["DO",0] = "DO0 " ;  s["DO",1] = "DO1 " ;
+    s["GA",0] = "GA0 " ;  s["GA",1] = "GA1 " ;
+  }
+  else
+ {
+    # Set of states to use without tautomers (ie, mcrp use):
+    s["TY",0] = "TY0 " ;  s["TY",1] = "TY1 " ;
+    s["AR",0] = "AR0 " ;  s["AR",1] = "AR1 " ;
+    s["AS",0] = "AS0 " ;  s["AS",1] = "AS1 " ;
+    s["GL",0] = "GL0 " ;  s["GL",1] = "GL1 " ;
+    s["LY",0] = "LY0 " ;  s["LY",1] = "LY1 " ;
+    s["CY",0] = "CY0 " ;  s["CY",1] = "CY1 " ;
+#    s["PA",0] = "PA0 " ;  s["PA",1] = "PA1 " ;
+#    s["PD",0] = "PD0 " ;  s["PD",1] = "PD1 " ;
+#    s["HE",0] = "HMCR" ;  s["HE",1] = "HMCO" ;
+  }
+}
+
+function warning(msg)
+{
+  print cmd ": Warning: " msg | "cat 1>&2" ;
+}
+
+function error(msg)
+{
+  print cmd ": Error: " msg | "cat 1>&2" ;
+  exit 1 ;
+}
+

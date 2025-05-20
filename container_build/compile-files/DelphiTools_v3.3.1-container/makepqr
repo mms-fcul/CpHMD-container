@@ -1,0 +1,387 @@
+#!/usr/bin/gawk -f
+###########################################################################
+# This file is part of meadTools, version 2.0.0.
+# 
+# Copyright (c) 2001-2012, Antonio M. Baptista, Instituto de Tecnologia
+# Quimica e Biologica, Universidade Nova de Lisboa, Portugal.
+# 
+# meadTools is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 2 of the License, or (at your
+# option) any later version.
+# 
+# meadTools is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with meadTools.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# For further details and info check the README file.
+# 
+# You can get meadTools at <http://www.itqb.unl.pt/simulation>.
+###########################################################################
+
+
+############################################################################
+# makepqr: a program to make a .pqr file from GROMACS info.
+#
+# Input  : .gro, .top and ff*nb.itp
+# Output : .pqr file
+#
+# Description:
+#
+# Data besides charges and radii are taken from the .gro file.
+#
+# Charges are taken from the .top file, except for water (see below).
+#
+# Radii are computed from info in .top and ff*nb.itp files.  More
+# exactly, atom types are read from .top and nonbond parameters from
+# the ff*nb.itp file.  Radii are then assigned in several different
+# ways, depending on the first and second options.  The first option
+# specifies that the radius of an atom is computed using the
+# Lennard-Jones interaction of: (L) a like-atom pair; (W) a pair with
+# the oxygen atom of water.  The second option specifies that the
+# distance between two atoms used to compute the radius is obtained
+# from their Lennard-Jones interaction as corresponding to: (min) the
+# energy minimum; (zero) the zero of energy; (RT) RT above the energy
+# minimum; (2RT) 2RT above the energy minimum.  These calculations
+# assume combination rule 1 (see GROMACS user manual), which works for
+# the GROMOS force fields, but *not* for OPLSAA.  Furthermore, the
+# atom type of the water oxygen (required with option "W") is assumed
+# to be OW, which works for the GROMOS force fields but *not* for
+# OPLSAA; if necessary, makepqr may be changed to read the variable
+# typeOW from the command line.
+#
+# Any "#include" directives found in the topology file are ignored,
+# meaning that only complete topologies can be used (eg, a processed
+# topology obtained with grompp).  All names and numbers of the
+# different molecules are read from the "[ molecules ]" directive in
+# the topology file, and their order is assumed to be the same used in
+# the .gro file (which seems to be default behaviour for GROMACS).
+# This should be completely general and allow the treatment of
+# multi-chain proteins and other molecules (waters, lipids, etc).
+#
+# The hydrogen atoms of water molecules are assumed to match
+# "^HW[12]$" and are removed from the final .pqr. This is done because
+# the inclusion of water molecules typically implies that tautomeric
+# hydrogens will be later added using the program addHtaut, which
+# requires oxygen-only waters. If necessary, makepqr may be changed to
+# read the variable atoms2remove from the command line.
+#
+# In some cases you may have a large topology file that already
+# contains the force field parameters (eg, a processed topology from
+# grompp), instead of "#include" them.  In that case you can give that
+# file twice in the argument list: one as ".top" and another as
+# "ff*nb.itp".  That seems to work fine.
+#
+# C-terminal sites are identified by assuming that a sequence of atoms
+# named C, O1 and O2 should be present (more exactly, O1 must
+# immediately follow C, the C-terminal finishing when O2 is found).
+# The atom names then produced are CT, OT1 and OT2.  In order that
+# subsequent operations work OK, it is necessary that the residues
+# separating the chains have no atoms named C, O, N, H (because of
+# MEAD) nor CT, OT1, OT2 (because of makesites).  Atoms named OXT (eg,
+# from Gromos-derived topologies) cause a warning.  Note that, when
+# building the model compound for a residue with number i, MEAD
+# includes the C and O atoms of residue i-1 and the H, N and CA of
+# residue i+1, meaning that it is safer to separate chains by a dummy
+# single-atom residue (recent MEAD versions can already deal with
+# multiple chains, but I never tested that feature).
+#
+# There is an annoying problem with topology files after version 3.3
+# of GROMACS.  This version introduced some format changes, one being
+# the inclusion of an additional column in the "[ atomtypes ]"
+# section.  The problem is that the topology file itself contains no
+# information on the version it refers to, meaning that the user has
+# to find that somehow.  The current version of makepqr simply checks
+# the number of fields in the lines in section "[ atomtypes ]", which
+# seems to work fine for the present purposes.
+#
+# In GROMACS versions > 4 the forcefields ffG53a5 and ffG53a6 use an
+# inconsistent name for atomtype CH2r/CH2R. A simple fix for this was
+# added, as well a check in function rad() to detect similar cases,
+# which could be fixed in a similar way. Although this case-by-case
+# approach makes the program to decide about actual data (instead of
+# just reading it from the input), it is the simplest and safest way
+# to deal with these cases, which will always be rare and temporary
+# and should be regarded as bugs.
+############################################################################
+
+
+BEGIN{
+  cmd = "makepqr" ;
+  usage = "Usage:  "cmd  \
+    "  L|W  min|zero|RT|2RT  FFNB_FILE  TOP_FILE  GRO_FILE\n"  \
+    "Options for radii assignment:\n"  \
+    "  'L'       Use Lennard-Jones interaction of like-atom pair.\n"  \
+    "  'W'       Use Lennard-Jones interaction of water-atom pair.\n"  \
+    "  'min'     Use LJ energy minimum.\n"  \
+    "  'zero'    Use LJ energy zero.\n"  \
+    "  'RT'      Use LJ energy minimum plus RT (thermal radii).\n"  \
+    "  '2RT'     Use LJ energy minimum plus 2RT (smaller thermal radii).\n"  \
+    "If you have a 'complete' topology use it twice, for 3rd and 4th arguments.\n"  \
+    "Works for GROMACS formats only, using GROMOS force fields.\n"  \
+    "Afterwards check N- and C-terminal sites." ;
+  if (ARGC != 6) error("Wrong number of arguments.\n" usage) ;
+  if (ARGV[1] !~ /^[LW]$/) error("Wrong argument value.\n" usage) ;
+  if (ARGV[2] !~ /^(min|zero|RT|2RT)$/) error("Wrong argument value.\n"usage) ;
+  watermode = 0 ;
+  if (ARGV[1] == "W") watermode = 1 ;
+  radtype = ARGV[2] ;
+  filecheck(nb_file = ARGV[3]) ;
+  filecheck(top_file = ARGV[4]) ;
+  filecheck(gro_file = ARGV[5]) ;
+
+  # Define some constants:
+  kT = 2.49432 ;                 # RT in kJ/mol at 300 K
+  typeOW = "OW" ;                # atom type of water oxygen in fGG*
+  atoms2remove = "^HW[12]$" ;    # name of water hydrogens to be removed
+
+  # Define .pqr format:
+  pqrfmt = "ATOM %6d %-4s %-4s %4d     %7.3f %7.3f %7.3f %6.3f %6.3f\n" ;
+
+  # Read file with nonbonded parameters:
+  # (assuming combination rule 1; see header)
+  # Field parsing is used. I hope this works in all cases found. Otherwise,
+  # one may switch to column parsing, as done below for the .gro file.
+  atomtype = nonbond = oldGROMACS = newGROMACS = 0 ;
+  while (getline < nb_file)
+  {
+    if ($1 ~ /^[;#]/) continue ;
+    if (NF == 0 || $0 ~ /\[ /) atomtype = nonbond = 0 ;
+    if (atomtype)
+    {
+      # Guessing GROMACS version (see header):
+      if (NF == 6 || $7 ~ /^;/)
+      {
+	oldGROMACS = 1 ;
+	c6_at[$1]  = $5 ;
+	c12_at[$1] = $6 ;
+      }
+      else
+      {
+	newGROMACS = 1 ;
+	c6_at[$1]  = $6 ;
+	c12_at[$1] = $7 ;
+      }
+    }
+    if (nonbond)
+    {
+      if (watermode)   # If using atom-versus-OW LJ
+      {
+	if ($1 == typeOW || $2 == typeOW)
+	{
+	  if ($1 == typeOW) a = $2 ;
+	  else a = $1 ;
+	  c6_nb[a]  = $4 ;
+	  c12_nb[a] = $5 ;
+	}
+      }
+      else   # If using like-atom LJ
+      {
+	if ($1 == $2)
+	{
+	  c6_nb[$1]  = $4 ;
+	  c12_nb[$1] = $5 ;
+	}
+      }
+    }
+    if ($0 ~ /\[ atomtypes \]/) atomtype = 1 ;
+    if ($0 ~ /\[ nonbond_params \]/) nonbond = 1 ;
+  }
+  close(nb_file) ;
+  if (oldGROMACS && newGROMACS)
+    error("Format of "nb_file" suggests GROMACS versions both < and >= 3.3.") ;
+  if (oldGROMACS) warning("Assuming GROMACS topology version < 3.3.") ;
+  if (newGROMACS) warning("Assuming GROMACS topology version >= 3.3.") ;
+
+  # Define c6 and c12 terms for CH2R (to fix a bug in ffG53a5 and ffG53a6):
+  c6_at["CH2R"] = c6_at["CH2r"] ;
+  c12_at["CH2R"] = c12_at["CH2r"] ;
+  c6_nb["CH2R"] = c6_nb["CH2r"] ;
+  c12_nb["CH2R"] = c12_nb["CH2r"] ;
+
+  # Read molecule types from topology file:
+  molecules = mmoltypes = 0 ;
+  while (getline < top_file)
+  {
+    if ($1 ~ /^[;#]/) continue ;
+    if ((NF == 0 || $0 ~ /\[ /) && molecules) molecules = 0 ;
+    if (molecules)
+    {
+      nmoltypes++ ;
+      moltype[nmoltypes] = $1 ;
+      nmols[nmoltypes] = $2 ;
+    }
+    if ($0 ~ /\[ molecules \]/) molecules = 1 ;
+  }
+  close(top_file) ;
+
+  atmcount = 0 ;
+  for (m = 1 ; m <= nmoltypes ; m++)
+  {
+    moleculetype = thismoltype = atom = natoms = 0 ;
+    offset = atmcount ;
+    while (getline < top_file)
+    {
+      if ($1 ~ /^[;#]/) continue ;
+      if (NF == 0 || $0 ~ /\[ /)
+      {
+	if (moleculetype) moleculetype = 0 ;
+	if (atom) thismoltype = atom = 0 ;
+      }
+      if (moleculetype && $1 == moltype[m]) thismoltype = 1 ;
+      if (atom && thismoltype)
+      {
+	atmcount++ ;
+	natoms++ ;
+	charge[atmcount] = $7 ;
+	radius[atmcount] = rad($2) ;
+      }
+      if ($0 ~ /\[ moleculetype \]/) moleculetype = 1 ;
+      if ($0 ~ /\[ atoms \]/) atom = 1 ;
+    }
+    close(top_file) ;
+    for (k = 2 ; k <= nmols[m] ; k++)
+    {
+      for (i = 1 ; i <= natoms ; i++)
+      {
+	atmcount++ ;
+	charge[atmcount] = charge[offset+i] ;
+	radius[atmcount] = radius[offset+i] ;
+      }
+    }
+  }
+
+  # Read .gro file:
+  nchains = 0 ;
+  getline < gro_file ;   # read title
+  getline < gro_file ;   # read no. of atoms
+  natoms = $1 ;
+  if (atmcount != natoms)
+    error("Number of atoms is "atmcount" in .top file and "natoms " in .gro file.") ;
+  for (i = 1 ; i <= natoms ; i++)
+  {
+    getline < gro_file ;
+    # Parse variables from line:
+    atmi = trim(substr($0, 11, 5)) ;
+    resn = substr($0, 1, 5) + 0 ;
+    resi = resname(trim(substr($0, 6, 5))) ;
+    x = substr($0, 21, 8) + 0 ;
+    y = substr($0, 29, 8) + 0 ;
+    z = substr($0, 37, 8) + 0 ;
+    # Assign charge and radius:
+    if (charge[i] != "")   # if atom was read from .top
+    {
+      if (atmi ~ atoms2remove) continue ;  # skip atoms to be removed
+      c = charge[i] ;
+      r = radius[i] ;
+    }
+    else # otherwise, leave both fields blank and write a warning
+    {
+      c = 0.000 ;
+      r = 0.000 ;
+      warning("Unknown atom "atmi" in residue "resi" "resn) ;
+    }
+    # Identify C-terminal sites, assuming that O1 immediately follows C,
+    # and change atom names accordingly (C -> CT, O1 -> OT1, O2 -> OT2):
+    if (wasC)
+    {
+      wasC = 0 ;
+      if(atmi == "O1")
+      {
+	cterm = 1 ;
+	sub(" C  ", " CT ", line) ;
+	nchains++ ;
+	warning("End of chain detected at residue "resi" "resn".") ;
+      }
+      printf "%s", line ;
+    }
+    if (cterm && atmi == "O1") atmi = "OT1" ;
+    if (cterm && atmi == "O2")
+    {
+      atmi = "OT2" ;
+      cterm = 0 ;
+    }
+    if (atmi == "OXT") warning("Non-standard Gromacs atom name OXT was found!") ;
+    line = sprintf(pqrfmt, i, atmi, resi, resn, 10 * x, 10 * y, 10 * z, c, r) ;
+    if (atmi != "C") printf "%s", line ;
+    else wasC = 1 ;
+  }
+  close(gro_file) ;
+
+  if (nchains > 1)
+    warning(nchains" chains were found. Check if separator residues are OK.") ;
+
+  exit 0 ;
+}
+
+function resname(r)
+{
+  # GROMACS CYS2 residues are not affected, so that they will be
+  # ignored later by makesites:
+  if (r == "CYSH") return "CYS" ;
+  else if (r ~ /^(LYSH|HISH|ASPH|GLUH|ARGN|TYRC|CYSC)/) return substr(r, 1, 3) ;
+  # It is assumed that HISA and HISB are really that, ie, that you don't
+  # want to make them into HIS:
+  else if (r ~ /^HIS[AB]/) return r ;
+  else return r ;
+}
+
+function rad(at)
+{
+  if (c6_nb[at] == "" && c6_at[at] == "")
+    error("No LJ parameters found for atom type "at".") ;
+
+  if (c6_nb[at] != "")
+  {
+    c6  = c6_nb[at] ;
+    c12 = c12_nb[at] ;
+  }
+  else if (watermode)
+  {
+    c6  = sqrt(c6_at[at] * c6_at[typeOW]) ;
+    c12 = sqrt(c12_at[at] * c12_at[typeOW]) ;
+  }
+  else
+  {
+    c6  = c6_at[at] ;
+    c12 = c12_at[at] ;
+  }
+  if (c6 == 0) return 0 ;
+  rmin = (2 * c12 / c6)^(1/6) ;
+  if (radtype == "min")       rr = rmin ;
+  else if (radtype == "zero") rr = rmin * 2^(-1/6) ;
+  else if (radtype == "RT")   rr = (rmin^(-6) + sqrt(kT / c12))^(-1/6) ;
+  else if (radtype == "2RT")  rr = (rmin^(-6) + sqrt(2 * kT / c12))^(-1/6) ;
+  if (!watermode || at == typeOW) return 10 * (rr / 2) ;
+  else return 10 * rr - rad(typeOW) ;
+}
+
+# Trim spaces from a string:
+function trim(s)
+{
+  return gensub(" ", "", "g", s) ;
+}
+
+function filecheck(file)
+{
+  if (system("test -f "file))
+    error("File "file" does not exist.") ;
+  if (system("test -r "file))
+    error("File "file" exists but is not readable.") ;
+}
+
+function warning(msg)
+{
+  print cmd ": Warning: " msg | "cat 1>&2" ;
+}
+
+function error(msg)
+{
+  print cmd ": Error: " msg | "cat 1>&2" ;
+  exit 1 ;
+}
+

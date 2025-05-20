@@ -1,0 +1,117 @@
+########################################
+#
+###  Start of CpHMD settings (pHmdp) ###
+#
+########################################
+export nCPU=8               # Number of CPUs to be used in parallel (default:8)
+export SysName="Protein"    # Name of our protein or system (default:Protein)
+export SimTime=25           # Total time in ns that CpHMD will be rans (default 1 ns)
+export StartTime=0          # Start simulation time in ns (default 0 ns)
+export ffID=G54a7pH         # Force fields: G54a7pH or CHARMM36pH or Amber14SBpH (default:G54a7pH)
+export pH=3.25              # Solution pH (default 7.0)
+export sites="4"            # list of residues to titrate or "all" to titrate every residue
+export temp=310.0           # Temperature (Kelvin)
+#
+#######################
+#
+# System definitions 
+#
+######################
+export memb=0               # Flag for membrane systems. If active index must contain Onetail/Monotail/Bitail (default 0)
+export multiple_solutes=0   # Defines if there are multiple solutes that need to be treated to correct PBC (systems with 2 solutes interacting with each other need to set this to 1)
+export include_itp=0        # Correctly treats systems pbc when solute is included as itp. (default 0)
+#
+##########################################
+#
+# -- Input File Location (full PATHs) -- #
+#
+##########################################
+export TOPin="penta.top"    # The topology of your system
+export GROin="penta.gro"    # The initial (gro) file
+export NDXin="index.ndx"    # Index must contain "System/Protein/Solute/SOL" and "Onetail/Monotail/Bitail" for membrane
+
+#
+# -- Input Directories Location --
+export CpHcontainer=""      # Full path location on where the container is located 
+export homedir=""           # home path to mount when entering singularity environment
+
+## MDrun parameter ##
+export mdrun="$GroDIR mdrun -nt $nCPU -pin auto -rcon 0.0" # Define which command should be used for parallel run
+
+########################################
+#
+###  Start of mdp file for CpHMD     ###
+#
+########################################
+#mdp# 
+#mdp# define                 = 
+#mdp# integrator             =  md
+#mdp# tinit                  =  0.0 ; Overridden with the value calculated by CpHMD
+#mdp# dt                     =  0.002    ; ps !
+#mdp# nsteps                 =  10000 ; Overridden with the value from settings
+#mdp# nstcalcenergy          =  5
+#mdp# nstcomm                =  5
+#mdp# nstxout-compressed     =  5000
+#mdp# compressed-x-precision =  1000
+#mdp# nstenergy              =  5000
+#mdp# nstxout                =  0
+#mdp# nstvout                =  0
+#mdp# nstfout                =  0
+#mdp# nstlog                 =  0
+#mdp# ns_type		     =  grid
+#mdp# 
+#mdp# ;PME 
+#mdp# coulombtype         = PME
+#mdp# nstlist             = 10
+#mdp# rlist               = 1.4
+#mdp# fourierspacing      = 0.12
+#mdp# rcoulomb            = 1.4
+#mdp# pme-order           = 4
+#mdp# rvdw                = 1.4
+#mdp# cutoff-scheme       = verlet
+#mdp# 
+#mdp# vdwtype             = cut-off
+#mdp# 
+#mdp# ; Energy monitoring 
+#mdp# ; (ions - when present - should be added to the SOL group in the index file)
+#mdp# energygrps          =  Protein SOL
+#mdp# 
+#mdp# ; v-rescaletemperature coupling is on available groups
+#mdp# ; This thermostat is similar to Berendsen coupling, but the stochastic 
+#mdp# ; term ensures that a proper canonical ensemble is generated.
+#mdp# Tcoupl              =  v-rescale
+#mdp# tc-grps             =  Protein  SOL
+#mdp# tau_t               =  1       1
+#mdp# ref_t               =  310.0   310.0 ; Overridden with the value from settings   
+#mdp# 
+#mdp# ; Isotropic pressure coupling is now on
+#mdp# Pcoupl              =  Parrinello-Rahman
+#mdp# Pcoupltype          =  isotropic
+#mdp# tau_p               =  5.0
+#mdp# compressibility     =  4.5e-5
+#mdp# ref_p               =  1.0
+#mdp# 
+#mdp# ; lincs_order value of 8 works better than 4
+#mdp# constraint_algorithm = lincs
+#mdp# lincs_order          = 8
+#mdp# constraints          = all-bonds
+#mdp# lincs-warnangle      = 90
+########################################
+#
+###  Start of fixgro file for CpHMD     ###
+#
+########################################
+# This file will only be used when 2 chains are present or if 
+# include_itp=1 flag is given! 
+#
+#fixgro# G Protein
+#fixgro# a 1 1367
+#fixgro# 
+#fixgro# # Groups to be (sequentially) assembled:
+#fixgro# A Protein
+#fixgro# 
+#fixgro# # Groups to be centered along each of the three box vectors:
+#fixgro# C Protein Protein Protein W W W
+#fixgro# 
+#fixgro# # Use PBC "P System System None" along each of the three box vectors:
+#fixgro# P Protein Protein Protein
