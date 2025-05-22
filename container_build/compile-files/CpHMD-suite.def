@@ -1,0 +1,103 @@
+Bootstrap: docker
+From: ubuntu:24.04
+Stage: Base-build
+
+%post
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get upgrade -y
+  apt-get install -y curl cmake fftw-dev python3.8-dev gcc build-essential openmpi-common openmpi-bin libopenmpi-dev bc gawk && \
+  apt-get clean -y && \
+  rm -rf /var/lib/apt/lists/*
+
+  unset DEBIAN_FRONTEND
+
+%environment
+  export PATH=$PATH:/gromacs/bin/
+  export PATH=$PATH:/lib64/openmpi/bin/
+  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH 
+  export PATH=/usr/local/bin:$PATH  # Ensure custom installs are on PATH
+
+%files
+  ### Pass base CpHMD programs and files inside the container ###
+  
+  /home/noliveira/CpHMD/container-CpHMD-open/container_build/compile-files/CpHMD_v3.3.2-container/ /CpHMD
+  /home/noliveira/CpHMD/container-CpHMD-open/container_build/compile-files/DelphiTools_v3.3.1-container/ /Delphi
+  /home/noliveira/CpHMD/container-CpHMD-open/container_build/compile-files/FFs/ /FFs
+  /home/noliveira/CpHMD/container-CpHMD-open/container_build/compile-files/STs /STs
+  /programs/petit1.6.1 /programs/petit1.6.1
+
+  ### Pass analysis scripts to be called in the app module ###
+  /home/noliveira/CpHMD/container-CpHMD-open/container_build/compile-files/analysis/ /analysis
+
+  ### Pass GROMACS binaries and library dependencies inside the container ###
+  
+  /gromacs/gromacs-2024.3/ /gromacs
+  /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58 /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58
+  /usr/lib/x86_64-linux-gnu/libcufft.so.10 /usr/lib/x86_64-linux-gnu/libcufft.so.10
+  /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95 /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95
+  /usr/lib/x86_64-linux-gnu/libcufft.so.11 /usr/lib/x86_64-linux-gnu/libcufft.so.11
+  /usr/lib/x86_64-linux-gnu/libgomp.so.1 /usr/lib/x86_64-linux-gnu/libgomp.so.1
+
+
+  #############################
+  ## create protonation app
+  #############################
+%apprun protonation
+     ### Commands to run protonation extraction
+     /analysis/extract_protonation.sh $1 $2
+
+     
+%apphelp protonation
+     Protonation is a command from the CpHMD container that treats the
+     simulation .occ file. This file contains inside the information of the tautomer used for each
+     simulation segment (commonly 20 ps) and can be interpreted as:
+     - Lines - Each line is a step of PB/MC cycle which normally is 20 ps.
+     - collumns - Tautomer choosed for that specific time in each corresponding residue of the .sites
+     file.
+     The first column is the first titratable residue in the .sites, and so on.
+     This container app is able to convert the basic tautomers of CpHMD into protonation, allowing
+     for the interpretation of protonation states on the simulation.
+     USAGE: singularity run --app protonation CpHMD.sif <.occ file> <.sites file>
+
+
+  ######################################
+  ## Extract protonation treatment file
+  ######################################
+%apprun extract-protonation-script
+     cp -rf /analysis/extract_protonation.sh ./
+
+%apphelp extract-protonation-script
+     This app copies the script that treats the protonation from the container
+     into the home directory to allow for user manipulation of the script.
+
+  ######################################
+  ## Extract protonation treatment file
+  ######################################
+
+%apprun extract-force-fields
+     cp -rf /FFs ./FFs
+
+%apphelp extract-force-fields
+     This app copies all force fields within the container to the home directory
+
+
+  ######################################
+  ## Extract protonation treatment file
+  ######################################
+
+%apprun extract-tautomers
+     cp -rf /STs ./STs
+
+%apphelp extract-tautomers
+     This app copies the tautomer files within the container to the home directory
+
+######################################
+  ## Extract protonation treatment file
+  ######################################
+
+%apprun pdb2cphmd
+      /analysis/prepare-pdb.sh $@ 
+
+%apphelp extract-tautomers
+     This app copies the tautomer files within the container to the home directory
