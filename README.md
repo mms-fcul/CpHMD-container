@@ -3,6 +3,8 @@ Git repository for divulging the st-CpHMD code in container format. Having such 
 
 To get the container to use please check the **releases or click [this link](https://github.com/mms-fcul/CpHMD-container/releases/latest)**
 
+<ins>**[Direct Download](https://github.com/mms-fcul/CpHMD-container/releases/latest/download/CpHMD.sif)**</ins>
+
 The container has been built in Ubuntu 24.04 and containes the following:
 - Ubuntu 24.04 - base of the container
 - GROMACS 2024.3 (CPU only)
