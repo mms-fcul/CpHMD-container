@@ -14,9 +14,17 @@ The container has been built in Ubuntu 24.04 and containes the following:
 - Petit 1.6.1
 
 Environments currently tested for CpHMD container calculations: 
-- [X] Linux environment
+- [X] Linux environment (CPU and CUDA GPU tested)
 - [X] Windows environment (using WSL)
 - [ ] Mac OS
+
+<details><summary> <h2>Future planned implementations</h2></summary><p>
+
+- [ ] New version of make_sites file without the need for pdbswitch and groswitch (outdated files)
+- [ ] Implement quick container App to produce a .sites file allowing for confirmation of titratable sites selected
+- [ ] Implementation of the reduced titration cycle to the container. 
+
+</p></details>
 
 # How to run CpHMD 
 
