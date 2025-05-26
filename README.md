@@ -35,6 +35,11 @@ Three steps are usually required for a safe CpHMD run:
 3. Preparing the inputs for the CpHMD run [Wiki:Editing-the-CpHMD.settings](https://github.com/mms-fcul/CpHMD-container/wiki/Editing-the-CpHMD.settings-to-your-taste)
 
 With all files prepared, starting the simulation is as simple as running your production folder.
+CPU-only
+```
+singularity exec --bind <your home directory> <CpHMD container> /CpHMD/scripts/CpHMD.sh  ./CpHMD-(basic|advanced).settings
+```
+GPU-support
 ```
 singularity exec --nv --bind <your home directory> <CpHMD container> /CpHMD/scripts/CpHMD.sh  ./CpHMD-(basic|advanced).settings
 ```
