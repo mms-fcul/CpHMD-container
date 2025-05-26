@@ -7,7 +7,7 @@ To get the container to use please check the **releases or click [this link](htt
 
 The container has been built in Ubuntu 24.04 and containes the following:
 - Ubuntu 24.04 - base of the container
-- GROMACS 2024.3 (CPU only)
+- GROMACS 2024.3 (CPU and CUDA support)
 - CpHMD running scripts
 - CpHMD Force Fields - GROMOS54a7, CHARMM36, AMBER14SB
 - Delphi v
@@ -28,7 +28,7 @@ Three steps are usually required for a safe CpHMD run:
 
 With all files prepared, starting the simulation is as simple as running your production folder.
 ```
-singularity exec --bind <your home directory> <CpHMD container> /CpHMD/scripts/CpHMD.sh  ./CpHMD-(basic|advanced).settings
+singularity exec --nv --bind <your home directory> <CpHMD container> /CpHMD/scripts/CpHMD.sh  ./CpHMD-(basic|advanced).settings
 ```
 How to manage the simulation submission, paralelization and background tasking is left on the hands of the user. This allows for a better adaptation on however each computing infrastructure is set, requiring only integration on the prefered workflow.
 
