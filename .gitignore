@@ -1,3 +1,4 @@
 container_build/compile-files/CpHMD-suite.def
 template/scripts
 CpHMD.sif
+CpHMD-gpu.sif

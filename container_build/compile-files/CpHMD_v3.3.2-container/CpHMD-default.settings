@@ -3,6 +3,7 @@
 ###  Start of CpHMD settings (pHmdp) ###
 #
 ########################################
+export GPU=0
 export nCPU=8               # Number of CPUs to be used in parallel
 export SysName="Protein"    # Name of our protein or system
 export SimTime=1            # # Total time in ns that CpHMD will be rans (default 1 ns)
@@ -64,7 +65,8 @@ export ffDIR="/FFs_v3"
 #####################################
 #
 #  -- Defining mdrun parameters --  #
-export mdrun="$GroDIR mdrun -nt $nCPU -pin auto -rcon 0.0" # Define which command should be used for parallel run
+export mdruncpu="mdrun -nt $nCPU -pin auto " # Define which command should be used for parallel run
+export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto "
 
 #########################################
 #

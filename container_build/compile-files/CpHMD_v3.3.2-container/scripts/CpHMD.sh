@@ -80,6 +80,29 @@ EndCycle=`echo ${SimTime} $EffectiveSteps $dt | awk '{print ($1*1000)/($2*$3)}'`
 
 message W "Running CpHMD cycles from $InitCycle until $EndCycle with 20 ps each cycle."
 
+#################################################
+## GPU Detection and mdrun parameters rebasing ##
+#################################################
+
+if [[ `awk '/GPU=/ ' $1` == "GPU=1" ]] ;then
+    ## change GPU /gromacs file if it is the standard one ##
+    if [ $GroDIR == "/gromacs/bin/gmx" ] ; then
+	export GroDIR="/gromacs-gpu/bin/gmx"
+	message W "GPU support requested, changing the gromacs compilation to gpu $GroDIR"
+    fi
+    
+   OMP_NUM_THREADS=$nCPU
+
+   ## Edit the mdrun line in the .pHmdp ##
+   
+   message W "$GroDIR" 
+   export mdrun=`echo $GroDIR $mdrungpu `
+
+   message W "changin mdrun to $mdrun"
+   
+else
+    export mdrun=`echo $GroDIR $mdruncpu`
+fi
 
 ## Creating a running folder to prevent clutter ##
 mkdir -p ./CpHMD-run_$$

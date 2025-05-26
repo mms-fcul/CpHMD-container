@@ -68,7 +68,8 @@ export CpHcontainer=""      # Full path location on where the container is locat
 export homedir=""           # home path to mount when entering singularity environment
 
 ## MDrun parameters ##
-export mdrun="$GroDIR mdrun -nt $nCPU -pin auto -rcon 0.0" # Define which command should be used for parallel run
+export mdruncpu="$GroDIR mdrun -nt $nCPU -pin auto " # Define which command should be used for parallel run
+export mdrungpu="$GroDIR mdrun -ntmpi 1 -ntomp $nCPU -gpu_id $GPUid -pin auto "
 
 
 ########################################

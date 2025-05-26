@@ -77,6 +77,19 @@ check_files ()
     if [[ $version == "2020.2" ]]; then
 	message E  "Gromacs ${version} is not supported for CpHMD since freezedims is bugged !!... Program will crash"
     fi
+
+    ##############################
+    ### Check for Cuda Support ###
+    ##############################
+    cuda=`awk '/GPU support:/ {print $(NF)}' gro-ver.txt`
+    if [[ $GPU == 1 && $cuda == "disabled" ]] ; then
+	message E  "Gromacs ${version} was not compiled with GPU support. Please correct the gromacs compilation or remove the GPU flag"
+    fi
+    ##evaluate if mdp contains only one energy group ##
+    if [[ `awk -F "=" '/energygrps/ {print $2}' ${runname}.mdp | awk '{print NF}'` > 1 && `awk -F "=" '/energygrps/ {print $2}' ${runname}.mdp ` != "System" && $GPU == 1 ]] ; then
+	message E  "ERROR: Use of GPU and multiple energy groups is not supported, simulations would be downgraded to CPU only. Please either use only 1 energy groups or remove GPU support."
+    fi
+    
 }
 
 make_auxiliary_files ()
@@ -617,7 +630,7 @@ run_dynamics ()
         -n TMP_CpHMD.ndx -o TMP_$1.tpr -maxwarn 1000 -quiet
 
     $mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
-        -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr -quiet \
+        -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr \
         -nice 19 # SC-14-12-2011
 
     rm -f \#*
