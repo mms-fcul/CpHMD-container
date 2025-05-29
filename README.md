@@ -65,7 +65,7 @@ How to manage the simulation submission, paralelization and background tasking i
   
     _How to use the app:_
     ```
-    singularity run --app extract-force-fields CpHMD.sif 
+    singularity run --app extract-force-fields CpHMD.sif <ff name (G54a7pH;CHARMM36pH;Amber14SBpH)>
     ```
 - **extract-tautomers**
 
@@ -73,5 +73,5 @@ How to manage the simulation submission, paralelization and background tasking i
   
     _How to use the app:_
     ```
-    singularity run --app extract-tautomers CpHMD.sif 
+    singularity run --app extract-tautomers CpHMD.sif <ff name (G54a7pH;CHARMM36pH;Amber14SBpH)>
     ```
