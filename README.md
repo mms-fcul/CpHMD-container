@@ -15,7 +15,7 @@ The container has been built in Ubuntu 24.04 and containes the following:
 
 Environments currently tested for CpHMD container calculations: 
 - [X] Linux environment (CPU and CUDA GPU tested)
-- [X] Windows environment (using WSL)
+- [X] Windows environment (CPU - using WSL | GPU - nvidia tested with CUDA ((add guide in the future)) )
 - [ ] Mac OS
 
 <details><summary> <h2>Future planned implementations</h2></summary><p>
