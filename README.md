@@ -15,7 +15,7 @@ The container has been built in Ubuntu 24.04 and containes the following:
 
 Environments currently tested for CpHMD container calculations: 
 - [X] Linux environment (CPU and CUDA GPU tested)
-- [X] Windows environment (using WSL)
+- [X] Windows environment (CPU - using WSL | GPU - nvidia tested with CUDA ((add guide in the future)) )
 - [ ] Mac OS
 
 <details><summary> <h2>Future planned implementations</h2></summary><p>
@@ -65,7 +65,7 @@ How to manage the simulation submission, paralelization and background tasking i
   
     _How to use the app:_
     ```
-    singularity run --app extract-force-fields CpHMD.sif 
+    singularity run --app extract-force-fields CpHMD.sif <ff name (G54a7pH;CHARMM36pH;Amber14SBpH)>
     ```
 - **extract-tautomers**
 
@@ -73,5 +73,5 @@ How to manage the simulation submission, paralelization and background tasking i
   
     _How to use the app:_
     ```
-    singularity run --app extract-tautomers CpHMD.sif 
+    singularity run --app extract-tautomers CpHMD.sif <ff name (G54a7pH;CHARMM36pH;Amber14SBpH)>
     ```
