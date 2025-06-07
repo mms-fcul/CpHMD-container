@@ -60,7 +60,8 @@ export CpHDIR="/CpHMD"
 export GroDIR="/gromacs/bin/gmx"
 export DelphiDir="/Delphi"
 export PetitDIR="/programs/petit1.6.1"
-export ffDIR="/FFs_v3"
+export ffDIR="/FFs"
+export DatabaseDIR="/Databases"
 
 #####################################
 #

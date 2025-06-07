@@ -36,12 +36,17 @@ while getopts "hp:f:r:" opt ; do
 	       echo "File given does not end with .pdb, please make sure to give a pdb file" >&2
 	       exit 1
 	   fi ;;
-	f) ff=${OPTARG} ;
-	   if [[ $ff != G54a7pH && $ff != CHARMM36pH && $ff != Amber14SBpH ]]; then
-	       echo "ff = $ff is not valid. Available force-field options are G54a7pH, CHARMM36pH, Amber14SBpH."
-	       exit 1
-	   fi
-	   ;;
+	f) fg=${OPTARG} ;
+	   case $fg in
+	       GROMOS|Gromos|gromos)\
+		   ff="G54a7pH" ;;
+	       CHARMM|Charmm|charmm)\
+		   ff="CHARMM36pH" ;;
+	       AMBER|Amber|amber)\
+		   ff="Amber14SBpH" ;;
+	       *|"")\
+		   echo "Missing or invalid force field to prepare your pdb. Please give one of the following GROMOS, CHARMM, AMBER. " ;;
+	   esac ;;
 	r) getopts-extra "$@" ;
            res=( "${OPTARG[@]}" );
 	   ;;
@@ -58,9 +63,9 @@ shift $(( OPTIND - 1 ))
 ### Copy the required FF to the working folder! ###
 echo "Copying files required for pdb2gmx treatment. Force-field chosen ${ff}." 
 
-#cp -rf /FFs/${ff}.ff ./
-#cp -rf /FFs/residuetypes.dat ./
-#cp -rf /FFs/specbond.dat ./
+cp -rf /FFs/${ff}.ff ./
+cp -rf /FFs/residuetypes.dat ./
+cp -rf /FFs/specbond.dat ./
 
 ### Get new name right ###
 
@@ -74,6 +79,7 @@ for rr in "${!res[@]}"
 do
     echo "Changing residue "${res[$rr]}
     case ${res[$rr]} in
+	
 	asp|Asp|ASP)
 	    sed -i 's/ASP/AS4/; s/ASPH/AS0 /' ./${fname}_CpHMD.pdb ;;
 	glu|Glu|GLU)

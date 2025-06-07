@@ -1,0 +1,165 @@
+Bootstrap: docker
+From: ubuntu:24.04
+Stage: Base-build
+
+%post
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get upgrade -y
+  apt-get install -y curl cmake fftw-dev python3.8-dev gcc build-essential openmpi-common openmpi-bin libopenmpi-dev bc gawk && \
+  apt-get clean -y && \
+  rm -rf /var/lib/apt/lists/*
+
+  unset DEBIAN_FRONTEND
+
+%environment
+  export PATH=$PATH:/gromacs/bin/
+  export PATH=$PATH:/lib64/openmpi/bin/
+  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH 
+  export PATH=/usr/local/bin:$PATH  # Ensure custom installs are on PATH
+
+%files
+  ### Pass base CpHMD programs and files inside the container ###
+  
+  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/CpHMD_v3.3.2-container/ /CpHMD
+  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/DelphiTools_v3.3.1-container/ /Delphi
+  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/FFs/ /FFs
+  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/STs /STs
+  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/Databases /Databases
+  /programs/petit1.6.1 /programs/petit1.6.1
+
+  ### Pass analysis scripts to be called in the app module ###
+  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/analysis/ /analysis
+
+  ### Pass GROMACS binaries and library dependencies inside the container ###
+  
+  /gromacs/gromacs-2024.3/ /gromacs
+  /gromacs/gromacs-2024.3-GPU/ /gromacs-gpu
+  /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58 /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58
+  /usr/lib/x86_64-linux-gnu/libcufft.so.10 /usr/lib/x86_64-linux-gnu/libcufft.so.10
+  /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95 /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95
+  /usr/lib/x86_64-linux-gnu/libcufft.so.11 /usr/lib/x86_64-linux-gnu/libcufft.so.11
+  /usr/lib/x86_64-linux-gnu/libgomp.so.1 /usr/lib/x86_64-linux-gnu/libgomp.so.1
+
+
+  #############################
+  ## create protonation app
+  #############################
+%apprun protonation
+     ### Commands to run protonation extraction
+     /analysis/extract_protonation.sh $1 $2
+
+     
+%apphelp protonation
+     Protonation is a command from the CpHMD container that treats the
+     simulation .occ file. This file contains inside the information of the tautomer used for each
+     simulation segment (commonly 20 ps) and can be interpreted as:
+     - Lines - Each line is a step of PB/MC cycle which normally is 20 ps.
+     - collumns - Tautomer choosed for that specific time in each corresponding residue of the .sites
+     file.
+     The first column is the first titratable residue in the .sites, and so on.
+     This container app is able to convert the basic tautomers of CpHMD into protonation, allowing
+     for the interpretation of protonation states on the simulation.
+     USAGE: singularity run --app protonation CpHMD.sif <.occ file> <.sites file>
+
+  ######################################
+  ## Extract protonation treatment file
+  ######################################
+%apprun extract-protonation-script
+     cp -rf /analysis/extract_protonation.sh ./
+
+%apphelp extract-protonation-script
+     This app copies the script that treats the protonation from the container
+     into the home directory to allow for user manipulation of the script.
+
+  ######################################
+  ## Extract protonation treatment file
+  ######################################
+
+%apprun extract-force-fields
+     case $1 in
+     GROMOS|Gromos|gromos)\
+          cp -rf  /FFs/G54a7pH.ff/ ./G54a7pH.ff/ ;;
+     CHARMM|Charmm|charmm)\
+          cp -rf /FFs/CHARMM36pH.ff/ ./CHARMM36pH.ff/ ;;
+     AMBER|Amber|amber)\
+          cp -rf /FFs/Amber14SBpH.ff/ ./Amber14SBpH.ff/ ;;
+     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
+     esac
+
+%applabels extract-force-fields
+     get-files tautomer
+
+%appenv extract-force-fields
+    SOFTWARE=extract-force-fields
+    export SOFTWARE
+
+
+%apphelp extract-force-fields
+     This app copies the specified force fields within the container to the home directory.
+
+
+  ######################################
+  ## Extract protonation treatment file
+  ######################################
+
+%apprun extract-tautomers
+     case $1 in
+     GROMOS|Gromos|gromos)\
+          cp -rf /STs/St-G54a7pH.ff/ ./STs-G54a7pH.ff/ ;;
+     CHARMM|Charmm|charmm)\
+          cp -rf /STs/St-CHARMM36pH.ff/ ./STs-CHARMM36pH.ff/ ;;
+     AMBER|Amber|amber)\
+          cp -rf /STs/St-Amber14SBpH.ff/ ./STs-Amber14SBpH.ff/ ;;
+     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
+     esac
+
+%applabels extract-tautomers
+     get-files tautomer
+
+%appenv extract-tautomers
+    SOFTWARE=extract-tautomers
+    export SOFTWARE
+
+%apphelp extract-tautomers
+     This app copies the tautomer files within the container to the home directory. Should be used with 1 argument which is the forcefield selected. (G54a7pH.ff,CHARMM36pH,Amber14SBpH.ff)
+
+  ######################################
+  ## Prepare the pdb for minimization 
+  ######################################
+
+%apprun pdb2cphmd
+      /analysis/prepare-pdb.sh $@ 
+
+%apphelp extract-tautomers
+     This app copies the tautomer files within the container to the home directory
+
+  ########################################################
+  ## Make_sites test script to check titrating residues ##
+  ########################################################
+
+%apprun make-sites
+      /CpHMD/scripts/make_sites $@  
+
+%apphelp make-sites
+     This app makes a .sites file with the inputed files, showing which residues are identified to titrate.
+
+  ########################################################
+  ## Extract delphi databases for molecule adition  ##
+  ########################################################
+
+%apprun extract-databases
+      cp -rf /Databases/DataBaseT_${1}.* ./Databases/
+
+%apphelp make-sites
+     This app makes a .sites file with the inputed files, showing which residues are identified to titrate.
+
+  ######################################
+  ## Prepare the pdb for minimization 
+  ######################################
+
+%apprun add-mol-db
+      /analysis/add-mol-database.sh $@ 
+
+%apphelp extract-tautomers
+     This app copies the tautomer files within the container to the home directory

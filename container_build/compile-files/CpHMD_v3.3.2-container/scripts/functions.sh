@@ -22,13 +22,13 @@ build_forcefield ()
 
 check_files ()
 {
-    # Check for other necessary files (filenames must be respected)
-    for f in ${runname}.mdp $GROin $TOPin $GroDIR $NDXin
-      do
-      if [ ! -f $f ]; then
-          message E  "File $f is missing!!!... Program will crash"
-      fi
-    done
+    ## Check for other necessary files (filenames must be respected)
+    #for f in ${runname}.mdp $GROin $TOPin $GroDIR $NDXin
+    #do
+    #  if [ ! -f $f ]; then
+    #      message E  "File $f is missing!!!... Program will crash"
+    #  fi
+    #done
 
     # Check topology to see if the name of the molecule is set to protein, otherwise it will crash
     mol_name=`awk '/nrexcl/{getline; print $1}' $TOPin`
@@ -83,7 +83,7 @@ check_files ()
     ##############################
     cuda=`awk '/GPU support:/ {print $(NF)}' gro-ver.txt`
     if [[ $GPU == 1 && $cuda == "disabled" ]] ; then
-	message E  "Gromacs ${version} was not compiled with GPU support. Please correct the gromacs compilation or remove the GPU flag"
+	message E  "Gromacs ${version} was not compiled with GPU support. Please correct the gromacs compilation or disable the GPU flag"
     fi
     ##evaluate if mdp contains only one energy group ##
     if [[ `awk -F "=" '/energygrps/ {print $2}' ${runname}.mdp | awk '{print NF}'` > 1 && `awk -F "=" '/energygrps/ {print $2}' ${runname}.mdp ` != "System" && $GPU == 1 ]] ; then
@@ -396,6 +396,8 @@ make_sites ()
 	message E "System simulated will wield a PB/MC renumbering larger than 10 000 which will crash the PBMC cycle. Your system is currently unfeasible to calculate with CpHMD."
     fi
 
+    cp -rf ${runname}.sites ${runname}-all.sites
+    
 }
 
 make_delphi_DB()
@@ -406,26 +408,26 @@ make_delphi_DB()
 	## Insert the terminals in the database
 	for ter in CT NT; do
 	    case $type in
-		crg)   awk -v t=$ter '$2~t {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' $DelphiDir/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
-		siz)   awk -v t=$ter '$2~t {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' $DelphiDir/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+		crg)   awk -v t=$ter '$2~t {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+		siz)   awk -v t=$ter '$2~t {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
 	    esac
 	done
 	## Insert other residues
 	for db_res in `awk '/ATOM/ {print substr($0,18,3)}' TMP_protein.pdb | sort | uniq` ; do	    
-	    if [[ ! -z `awk -v d=$db_res '$2==d {print}' "$DelphiDir"/DataBaseT_${ffID}.${type}` ]] ; then
+	    if [[ ! -z `awk -v d=$db_res '$2==d {print}' "$DatabaseDIR"/DataBaseT_${ffID}.${type}` ]] ; then
 		## If the third character of the residue name is a number (hence a CpHMD residue most likely) ##
 		if [[ `echo $db_res | awk '{if (substr($1,3,1) ~ /^[0-9]/) {print 1}}' ` == 1 ]] ;then
 		    ## Check for the residue in question to not be in the database already ##
 		    if [[ -z `awk  -v d=${db_res} '$2==d {print}' ./DataBaseT.${type}` ]] ; then
 			case $type in
-			    crg)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' $DelphiDir/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
-			    siz)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' $DelphiDir/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+			    crg)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+			    siz)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
 			esac
 		    fi
 		else
 		    case $type in
-			crg)   awk -v d=${db_res} '$2~d {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' $DelphiDir/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
-			siz)   awk -v d=${db_res} '$2~d {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' $DelphiDir/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+			crg)   awk -v d=${db_res} '$2~d {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+			siz)   awk -v d=${db_res} '$2~d {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
 		    esac
 		fi
 	    else

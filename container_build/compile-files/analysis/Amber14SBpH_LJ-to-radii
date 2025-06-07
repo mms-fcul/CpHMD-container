@@ -1,0 +1,89 @@
+#!/usr/bin/awk -f
+
+# It calculates radii for all atom types of CHARMM36 against OW (SPC or TIP3P)
+# The LJ parameters for pairs of atoms i and j are constructed using the
+# Lorentz-Berthelot combination rule which  arithmeticaly averages the sigmas
+# and geometricaly averages the epsilons
+#
+# Inspired by makepqr of António Baptista
+# Miguel Machuqueiro 2019-11-22
+
+BEGIN{
+
+    cmd = "convert-LJ-to-radii" ;
+    usage = "Usage:  "cmd  \
+	  "   <ffnonbonded.itp>  min|zero|RT|2RT|3RT|5RT\n"  \
+	  "Options for radii assignment:\n"  \
+	  "  'min'  : use LJ energy minimum.\n"  \
+	  "  'zero' : use LJ energy zero.\n"  \
+	  "  'RT'   : use LJ energy minimum plus RT (thermal radii).\n"  \
+	  "  '2RT'  : use LJ energy minimum plus 2RT (smaller thermal radii).\n"  \
+	  "  '3RT'  : use LJ energy minimum plus 3RT (smaller thermal radii).\n"  \
+	  "  '5RT'  : use LJ energy minimum plus 5RT (smaller thermal radii).\n" ;
+    if (ARGC != 3) error("Wrong number of arguments.\n" usage) ;
+    if (ARGV[2] !~ /^(min|zero|RT|2RT|3RT|5RT)$/) error("Wrong argument value.\n"usage)
+    #
+    kT = 2.49432 ;
+    # Which type of Radii is used (options are min, zero, RT, 2RT, 3RT and 5RT):
+    #radtype = "2RT" ;
+    radtype = ARGV[2] ;
+    # A clean file from AMBER14SB nonbonded parameters
+    #LJ_file = "AMBER14SB_LJ_atomtypes.itp" ;
+    LJ_file = ARGV[1] ;
+    # LJ (sigma/epsilon) values for OW atom type
+    sigW = 3.16557e-01 ;
+    epsW = 6.50194e-01 ;    
+    # Calculate the radius of water (OW):
+    C6W = 4*epsW*(sigW**6) ;
+    C12W = 4*epsW*(sigW**12) ;
+    rmin = (2 * C12W / C6W)^(1/6) ;
+    # condition fot the different radii types
+    if (radtype == "min")          rr = rmin ;
+    else if (radtype == "zero") rr = rmin * 2^(-1/6) ;
+    else if (radtype == "RT")   rr = (rmin^(-6) + sqrt(kT / C12W))^(-1/6) ;
+    else if (radtype == "2RT")  rr = (rmin^(-6) + sqrt(2 * kT / C12W))^(-1/6) ;
+    else if (radtype == "3RT")  rr = (rmin^(-6) + sqrt(3 * kT / C12W))^(-1/6) ;
+    else if (radtype == "5RT")  rr = (rmin^(-6) + sqrt(5 * kT / C12W))^(-1/6) ;
+    rW = 10 * (rr / 2) ;
+    #
+    # Start processing the file:
+    while (getline < LJ_file)
+    {
+        if ($1 ~ /^(;|#|\[)/) continue ;
+	if ($6 == 0 || $7 == 0 ) printf "%6s %6.3f\n", $1, 0 ;
+	else
+        {
+	   # applying Lorentz-Berthelot combination rules
+           sig_int = (sigW+$6)/2 ;
+           eps_int = sqrt(epsW*$7) ;
+           # Convert to C6/C12 to apply makepqr formula:
+           C6_int = 4*eps_int*(sig_int**6) ;
+           C12_int = 4*eps_int*(sig_int**12) ;
+           # Calculating rmin
+           rmin = (2 * C12_int / C6_int)^(1/6) ;
+           # Checking the "strength" of the interaction
+           if (radtype == "min")          rr = rmin ;
+              else if (radtype == "zero") rr = rmin * 2^(-1/6) ;
+	      else if (radtype == "RT")   rr = (rmin^(-6) + sqrt(kT / C12_int))^(-1/6) ;
+              else if (radtype == "2RT")  rr = (rmin^(-6) + sqrt(2 * kT / C12_int))^(-1/6) ;
+              else if (radtype == "3RT")  rr = (rmin^(-6) + sqrt(3 * kT / C12_int))^(-1/6) ;
+              else if (radtype == "5RT")  rr = (rmin^(-6) + sqrt(5 * kT / C12_int))^(-1/6) ;
+	    printf "%6s %6.3f\n", $1, 10 * rr - rW ;
+	}
+    }
+    close(LJ_file) ;
+}
+
+function warning(msg)
+{
+	print cmd ": Warning: " msg | "cat 1>&2" ;
+}
+
+function error(msg)
+{
+	print cmd ": Error: " msg | "cat 1>&2" ;
+	exit 1 ;
+}
+
+
+ 

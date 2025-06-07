@@ -84,7 +84,7 @@ message W "Running CpHMD cycles from $InitCycle until $EndCycle with 20 ps each 
 ## GPU Detection and mdrun parameters rebasing ##
 #################################################
 
-if [[ `awk '/GPU=/ ' $1` == "GPU=1" ]] ;then
+if [[ $GPU == 1 ]] ;then
     ## change GPU /gromacs file if it is the standard one ##
     if [ $GroDIR == "/gromacs/bin/gmx" ] ; then
 	export GroDIR="/gromacs-gpu/bin/gmx"
@@ -106,7 +106,20 @@ fi
 
 ## Creating a running folder to prevent clutter ##
 mkdir -p ./CpHMD-run_$$
-cp ./${SysName}.mdp ./CpHMD-run_$$ ; cp ./${SysName}.fixgro ./CpHMD-run_$$ ; cp $1  ./CpHMD-run_$$
+
+### Checking if the specific files exist and copying them to the running directory
+for f in ${SysName}.mdp $GROin $TOPin $NDXin 
+do
+    if [ ! -f $f ]; then
+        message E  "File $f is missing!!!... Program will crash"
+    fi
+done
+
+cp $1  ./CpHMD-run_$$ ; cp ${SysName}.mdp ./CpHMD-run_$$ ; cp ${SysName}.fixgro ./CpHMD-run_$$
+
+cp $GROin ./CpHMD-run_$$/${SysName}.gro ; GROin="./${SysName}.gro"
+cp $TOPin ./CpHMD-run_$$/${SysName}.top ; TOPin="./${SysName}.top"
+cp $NDXin ./CpHMD-run_$$/${SysName}.ndx ; NDXin="./${SysName}.ndx"
 
 cd ./CpHMD-run_$$
 
@@ -245,8 +258,9 @@ cp -df ./${SysName}.sites ../
 if (for f in ${SysName}_CpHrun*; do diff $f ../$f; done);
 then
     cd ../
-    rmdir --ignore-fail-on-non-empty ./CpHMD-run_$$
-    gzip -9 ${SysName}_CpHrun.{err,log,tpr}
+    gzip  ${SysName}_CpHrun.{log,tpr}
+    sleep 1
+    rm -rf ./CpHMD-run_$$
 else
     message E "Error in file copy... please check local files"
 fi
