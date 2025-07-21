@@ -1,4 +1,4 @@
-#!/bin/bash -e 
+#!/bin/bash  
 #
 prog=`basename $0` 
 usage="Usage: $prog <MyProtein_001>.settings\n
@@ -259,8 +259,8 @@ if (for f in ${SysName}_CpHrun*; do diff $f ../$f; done);
 then
     cd ../
     gzip  ${SysName}_CpHrun.{log,tpr}
-    sleep 1
-    rm -rf ./CpHMD-run_$$
+    sleep 3
+    rm -rf ./CpHMD-run_*
 else
     message E "Error in file copy... please check local files"
 fi

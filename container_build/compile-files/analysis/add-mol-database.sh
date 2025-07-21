@@ -11,8 +11,8 @@ Help()
     echo "h    Print this Help."
     echo "f    force field name (GROMOS,CHARMM,AMBER) or custom location of ffnonbonded.itp."
     echo "i    itp file for the molecule to add (can be obtained by CHARMM-GUI for example"
-    echo "t    top file resolved for all system, tipically obtained from a gromacs grompp."
     echo "r    Names of the moleculetypes as they appear in the .itp file. Can be more than one. (needs testing)"
+    echo "e    Energy for Lennard-Jonnes radii calculation, zero, min, RT, 2RT,5RT (default 2RT) "
     echo
 }
 ### Reading number of variables ###
@@ -31,7 +31,7 @@ function getopts-extra () {
 LJenergy="2RT"
 
 
-while getopts "hf:i:r:" opt ; do
+while getopts "hf:i:e:r:" opt ; do
     case $opt in
         i) file=${OPTARG} ;
 	   if [[ `echo $file | awk -F "." '{print $NF}'` != "itp" ]]
@@ -42,11 +42,17 @@ while getopts "hf:i:r:" opt ; do
 	f) ff=${OPTARG} ;
 	   case $ff in
 	       GROMOS|Gromos|gromos)\
-		   ffloc="/FFs/G54a7pH.ff/ffnonbonded.itp" ;;
+		   ffloc="/FFs/G54a7pH.ff/ffnonbonded.itp" ;
+		   dbloc="DataBaseT_G54a7pH" ;
+		   ;;
 	       CHARMM|Charmm|charmm)\
-		   ffloc="/FFs/CHARMM36pH.ff/ffnonbonded.itp" ;;
+		   ffloc="/FFs/CHARMM36pH.ff/ffnonbonded.itp" ;
+		   dbloc="DataBaseT_CHARMM36pH" ;
+		   ;;
 	       AMBER|Amber|amber)\
-		   ffloc="/FFs/Amber14SBpH.ff/ffnonbonded.itp" ;;
+		   ffloc="/FFs/Amber14SBpH.ff/ffnonbonded.itp" ;
+		   dbloc="DataBaseT_Amber14SBpH" ;
+		   ;;
 	       *)\
 		   ffloc=${OPTARG}
 		   if [[  `echo $ffloc | awk -F "." '{print $NF}'` != "itp" ]] 
@@ -56,6 +62,8 @@ while getopts "hf:i:r:" opt ; do
 		   fi ;;
 	       "") echo "Missing or invalid force field to add the database. Please give one of the following GROMOS, CHARMM, AMBER or your custom force-field path. " ;;
 	   esac ;;
+	e) LJenergy=${OPTARG}
+	   ;;
 	r) getopts-extra "$@" ;
            res=("${OPTARG[@]}");
 	   ;;
@@ -82,7 +90,8 @@ for rr in "${!res[@]}" ; do
     
     if [[ ! -z `awk '/nonbond_params/' $ffloc` ]] ; then
 	echo "treating ffnonbonded as GROMOS like, identifying \[nonbond_params\] delimiter "
-	awk 'NR==1,/nonbond_params/ && !/^;/' $ffloc | sed 's/\[ nonbond_params \]//;/^[[:space:]]*$/d' > params.itp
+	awk 'NR==1,/nonbond_params/ && !/^;/' $ffloc | grep OW > params.itp	
+	awk '/nonbond_params/,/\[ pair/ ' $ffloc | awk 'NF>3 && !/^;/' | grep OW | sed 's/OW//' >>params.itp 
 
 	/analysis/GROMOS_LJ-to-radii ./params.itp ${LJenergy} > LJ_radii.dat
     elif [[ ! -z `awk '/pairtypes/' $ffloc` ]] ; then
@@ -113,3 +122,24 @@ for rr in "${!res[@]}" ; do
     done < <(awk -v d=${res[$rr]} '$4==d && !/^;/ {print $0}' $file )
     
 done
+
+### Make the final databases to the output folder ###
+
+#for db in siz crg
+#do
+#    case $db in
+#	siz)     file="./radii-to-add-on-database.siz" ;;
+#	siz)     file="./charges-to-add-on-database.crg" ;;
+#    esac
+#
+#    ## check to make sure database ends with new line ##
+#    if [ -z "$(tail -c 1 < /Databases/${dbloc}.${db})" ];
+#    then
+#	cat /Databases/${dbloc}.${db} $file  > ./Databases/${dbloc}.${db}
+#    else
+#	cat /Databases/${dbloc}.${db} ; echo "" ; cat $file > ./Databases/${dbloc}.${db}
+#    fi
+#done
+
+
+rm -rf params.itp LJ_radii.dat #./radii-to-add-on-database.siz ./charges-to-add-on-database.crg

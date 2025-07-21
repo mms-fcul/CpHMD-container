@@ -5,3 +5,4 @@ CpHMD-gpu.sif
 CpHMD-apptest.sif
 01_clean-temp.sh
 tutorial-testing/
+app-note-testing/

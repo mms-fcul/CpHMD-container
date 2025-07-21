@@ -444,6 +444,30 @@ make_delphi_DB()
 	fi
     done
 
+    #### Routine to deal with 4 letter residues ####
+    #### Identify if there are residue names with 4 letters ####
+    # Create an array with the alphabet to create the replace name
+    alphabet=({A..Z})
+    ## make function to run over all molecules for PB and get only 4 char residue names. ##
+    #declare -A res4
+    n=0
+    echo `awk '/ATOM/ {print substr($0,18,4)}' TMP_protein.pdb | sort | uniq | awk '$1 ~ /^[a-zA-Z0-9]{4}$/ {print}'`
+
+    for res in `awk '/ATOM/ {print substr($0,18,4)}' TMP_protein.pdb | sort | uniq | awk '$1 ~ /^[a-zA-Z0-9]{4}$/ {print}' ` ; do	 
+	## Useless since arrays can't be exported. 
+	#res4[$res]=$newname
+	newname=`echo ${alphabet[$n]}${alphabet[$n]}${alphabet[$n]}`
+	
+	echo $res $newname >> ./4letterkey.dat
+
+	sed -i "s/${res}/${newname} /" DataBaseT.crg
+	sed -i "s/${res}/${newname} /" DataBaseT.siz
+	
+	#message W "Residue $res will be recognized by the PB/MC cycle as:  $newname "
+	((++n))
+	echo $n
+    done
+
     ## make CRG_FILE ##
     awk 'NF==3 {printf"%-6s%-9s%6.3f\n", $1,$2,0.000}' ./DataBaseT.crg > CRG_FILE
     

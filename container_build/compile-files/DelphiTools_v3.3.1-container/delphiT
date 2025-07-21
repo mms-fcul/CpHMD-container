@@ -76,6 +76,23 @@ cd delphiT$$
 echo -e "Protein" | ${GroDIR} trjconv -f ../TMP_${run_n}.gro -s ../TMP_CpHMD.tpr \
      -n ../TMP_CpHMD.ndx -o TMP_auxD1.gro -pbc mol -quiet
 
+### Routine to correct the 4 letter code residue ###
+### Delphi reads only 3 letter so it will be converted ###
+
+if [ -f "../4letterkey.dat" ]
+then
+    message W "Correcting the 4 letter naming of the generated .gro" 
+    while read -r line
+    do
+	res=`echo $line | awk '{print $1}'`
+	name=`echo $line | awk '{print $2}'`
+
+	message W "changing $res to $name"
+	sed -i "s/$res/$name /" TMP_auxD1.gro
+	
+    done < ../4letterkey.dat
+fi
+
 ###  Make links temporarily to run geom_center (Check the C-terminal)
 ##  When C-terminal exists, the name of some atoms in the gro file do
 ##     not match the ones on st FILES

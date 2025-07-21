@@ -33,7 +33,7 @@ BEGIN{
     # Getting the C6 and C12 of water:
     while (getline < LJ_file)
     {
-	if ($1 == "OW")
+	if ($1 == "OW" && $2 == 8)
 	{
 	    C6W = sqrt($6 * $6)  ;
 	    C12W = sqrt($7 * $7) ;
@@ -48,17 +48,18 @@ BEGIN{
     else if (radtype == "3RT")  rr = (rmin^(-6) + sqrt(3 * kT / C12W))^(-1/6) ;
     else if (radtype == "5RT")  rr = (rmin^(-6) + sqrt(5 * kT / C12W))^(-1/6) ;
     rW = 10 * (rr /2)  ;
+    print rW
     ##
     # Start processing the file:
     while (getline < LJ_file)
     {
-        if ($1 ~ /^(;|#|\[)/) continue ;
-	if ($6 == 0 || $7 == 0 ) printf "%6s %6.3f\n", $1, 0 ;
+        if ($1 ~ /^(;|#|\[)/ || $1 == "OW" ) continue ;
+	if ($3 == 0 || $4 == 0 ) printf "%6s %6.3f\n", $1, 0.001 ;
 	else
         {
            # Convert to C6/C12 to apply makepqr formula:
-	   C6_int = sqrt($6 * C6W) ;
-           C12_int = sqrt($7 * C12W) ;
+	    C6_int = sqrt($3 * $3)  ;
+	    C12_int = sqrt($4 * $4) ;
            # Calculating rmin
            rmin = (2 * C12_int / C6_int)^(1/6) ;
            # Checking the "strength" of the interaction
@@ -68,7 +69,7 @@ BEGIN{
               else if (radtype == "2RT")  rr = (rmin^(-6) + sqrt(2 * kT / C12_int))^(-1/6) ;
               else if (radtype == "3RT")  rr = (rmin^(-6) + sqrt(3 * kT / C12_int))^(-1/6) ;
               else if (radtype == "5RT")  rr = (rmin^(-6) + sqrt(5 * kT / C12_int))^(-1/6) ;
-	    printf "%6s %6.3f\n", $1, 10 * rr - rW ;
+	   printf "%6s %6.3f\n", $1, 10 * rr - rW  ;
 	}
     }
     close(LJ_file) ;
