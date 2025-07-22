@@ -69,6 +69,7 @@ export DatabaseDIR="/Databases"
 export mdruncpu="mdrun -nt $nCPU -pin auto " # Define which command should be used for parallel run
 export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto "
 
+export mdpoverride=0
 #########################################
 #
 ###  Start of mdp file for CpHMD     ###

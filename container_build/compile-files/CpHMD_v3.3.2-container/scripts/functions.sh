@@ -89,8 +89,35 @@ check_files ()
     if [[ `awk -F "=" '/energygrps/ {print $2}' ${runname}.mdp | awk '{print NF}'` > 1 && `awk -F "=" '/energygrps/ {print $2}' ${runname}.mdp ` != "System" && $GPU == 1 ]] ; then
 	message E  "ERROR: Use of GPU and multiple energy groups is not supported, simulations would be downgraded to CPU only. Please either use only 1 energy groups or remove GPU support."
     fi
+
+    ############################
+    ## Check on .mdp settings ##
+    ############################
+    
+    if (( $mdpoverride == 0 )) ; # if override is turned off check values
+    then
+	## check for force-switch settings and FF != CHARMM
+	if grep -q vdw-modifier ${runname}.mdp && [ $ffID != "CHARMM36pH" ] ; then
+	    message E "Error: VDW-modifier given in mdp but force-field different than CHARMM, remove this option from the mdp in the settings file. If it is intended to not use the default parameters please add to your settings file the flag: export mdpoverride=1 "
+    fi    
+	## Check if ff gromos vdw and coul = 1.2 or 1.0
+	if [[ `awk -F "=" '$1~"rvdw " {print $2+0}'  ${runname}.mdp` != "1.0" && `awk -F "=" '$1~"rvdw " {print $2+0}'  ${runname}.mdp` != "1.4" && \
+		  `awk -F "=" '$1~"rcoulomb " {print $2+0}'  ${runname}.mdp` != `awk -F "=" '$1~"rvdw " {print $2+0}'  ${runname}.mdp` && \
+		  $ffID == "G54a7pH" ]] ; then
+	    message E "Error: GROMOS force field selected but rvdw and rcoulomb are not the default 1.4 (protein) or 1.0 (membrane). If it is intended to not use the default parameters please add to your settings file the flag: export mdpoverride=1 "
+	fi
+	## check if ff charmm vdw and coul = 1.2
+	if [[ `awk -F "=" '$1~"rvdw " {print $2+0}'  ${runname}.mdp` != "1.2" && `awk -F "=" '$1~"rcoulomb " {print $2+0}'  ${runname}.mdp` != "1.2" && $ffID == "CHARMM36pH" ]] ; then
+	    message E "Error: CHARMM force field selected but rvdw and rcoulomb are not the default 1.2. If it is intended to not use the default parameters please add to your settings file the flag: export mdpoverride=1 "
+	fi
+	## check if ff Amber vdw and coul = 1.0
+	if [[ `awk -F "=" '$1~"rvdw " {print $2+0}'  ${runname}.mdp` != "1.0" && `awk -F "=" '$1~"rcoulomb " {print $2+0}'  ${runname}.mdp` != "1.0" && $ffID == "Amber14SBpH" ]] ; then
+	    message E "Error: CHARMM force field selected but rvdw and rcoulomb are not the default 1.0. If it is intended to not use the default parameters please add to your settings file the flag: export mdpoverride=1 "
+	fi
+    fi
     
 }
+
 
 make_auxiliary_files ()
 {
