@@ -1,4 +1,4 @@
-#!/bin/bash  
+#!/bin/bash -e
 #
 prog=`basename $0` 
 usage="Usage: $prog <MyProtein_001>.settings\n
@@ -260,6 +260,7 @@ then
     cd ../
     gzip  ${SysName}_CpHrun.{log,tpr}
     sleep 3
+    rm -rf ./CpHMD-run_*/*
     rm -rf ./CpHMD-run_*
 else
     message E "Error in file copy... please check local files"

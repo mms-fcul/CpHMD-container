@@ -97,7 +97,7 @@ BEGIN{
   seclong["b"] = "bonds" ;
   seclong["a"] = "angles" ;
   seclong["d"] = seclong["i"] = "dihedrals" ;
-  
+
   read_states() ;
   read_dictionary() ;
   process_top() ;
@@ -115,16 +115,11 @@ function read_states(\
     state[s] = $1 ;   # current protonation state of site s
     sres[s] = $2 ;    # residue number of site s
     stype[s] = $3 ;   # residue type of site s (ASP, CT, HIS, etc)
-    #nname[$2] = substr($3,1,2)$1 ;
+    nname[$2] = substr($3,1,2)$1 ;
     if ( $3 != "NTR" &&  $3 != "CTR" )
     {
 	titres[$2,substr($3,1,2)] = 1 ;
-	nname[$2] = substr($3,1,2)$1 ;
-    }
-    if ( $3 == "NTR" ||  $3 == "CTR" )
-    {
-	nter[$2] = substr($3,1,2)$1
-	#nter[$2,substr($3,1,2)] = 1;
+	#nname[$2] = substr($3,1,2)$1 ;
     }
   }
   close(states_file) ;
@@ -220,34 +215,35 @@ function process_top(\
     if (sec == "atoms")
     { # read atoms
       gsub(/; *qtot.*$/,"") ;  # remove qtot comments, which no longer apply
-
       if (ptit[$3,$5] == 1)
       {
 	anumb[$3,$5] = $1 ; # atom number for given residue number and atom name
 	q = par[$3" q "$5] ;
 	t = par[$3" t "$5] ;
 
-	### Check if the residue being changed is in nname[$3]
-	if ( nname[$3] != "" )
+	if ( substr(nname[$3],1,2) != "NT" && substr(nname[$3],1,2) != "CT" )
 	{
-	    #Read all atoms to be changed charges through ptit without changing res name #
-	    printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; changed by update-top \n",
-		   $1, (t=="" ? $2 : t), $3, nname[$3], $5, $6, (q=="" ? $7 : q+0), $8) ;
+	printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; changed by update \n",
+	       $1, (t=="" ? $2 : t), $3, nname[$3], $5, $6, (q=="" ? $7 : q+0), $8) ;
 	}
-	else # If the residue name is not changing (needed for tautomers to output res name)
+	else
 	{
 	    printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; changed by update-top \n",
-		   $1, (t=="" ? $2 : t), $3, $4, $5, $6, (q=="" ? $7 : q+0), $8) ;
-	}      
+	       $1, (t=="" ? $2 : t), $3, $4, $5, $6, (q=="" ? $7 : q+0), $8) ;
+	}
       }
-      #### Now to rename the rest of the titrating residue name to the new one ####
       else if ( titres[$3,substr($4,1,2)] == 1 )
       {
 	  if ( substr(nname[$3],1,2) != "NT" && substr(nname[$3],1,2) != "CT" )
-      	  {
-      	      printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; updated the taut name \n",
-      		     $1, $2, $3, nname[$3], $5, $6, $7, $8) ;
-      	  }
+	  {
+	      printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; updated the taut name \n",
+		     $1, $2, $3, nname[$3], $5, $6, $7, $8) ;
+	  }
+	  else
+	  {
+	      printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; changed by tau-top name \n",
+		     $1, (t=="" ? $2 : t), $3, $4, $5, $6, (q=="" ? $7 : q+0), $8) ;
+	  }
       }
       
       else print $0 ;
