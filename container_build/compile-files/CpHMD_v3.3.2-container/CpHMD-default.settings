@@ -40,6 +40,17 @@ export pot=0.0              # Electrostatic potential (mV).
 export offset=2000          # Integer higher than residue number .gro 
 export seed=1234567         # Monte Carlo seed used in program petit.
 
+
+##############################
+# Reduced titration settings #
+##############################
+export ReduceTitration=0
+
+################################
+# Plumed integration variables #
+################################
+export plumed=0        # turn plumed on or off (1/0)
+
 ##########################################
 #
 # -- Input File Location (full PATHs) -- #

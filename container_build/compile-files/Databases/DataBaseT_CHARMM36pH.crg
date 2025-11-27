@@ -1140,11 +1140,4 @@ H15B  CYP       0.090
  C16  CYP      -0.270
 H16A  CYP       0.090
 H16B  CYP       0.090
-H16C  CYP       0.090
-   N  NME      -0.470
-   H  NME       0.310
- CH3  NME      -0.110
-HH31  NME       0.090
-HH32  NME       0.090
-HH33  NME       0.090
-
+H16C  CYP       0.090   

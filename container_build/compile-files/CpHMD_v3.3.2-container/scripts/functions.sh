@@ -22,13 +22,6 @@ build_forcefield ()
 
 check_files ()
 {
-    ## Check for other necessary files (filenames must be respected)
-    #for f in ${runname}.mdp $GROin $TOPin $GroDIR $NDXin
-    #do
-    #  if [ ! -f $f ]; then
-    #      message E  "File $f is missing!!!... Program will crash"
-    #  fi
-    #done
 
     # Check topology to see if the name of the molecule is set to protein, otherwise it will crash
     mol_name=`awk '/nrexcl/{getline; print $1}' $TOPin`
@@ -36,7 +29,6 @@ check_files ()
 	message E  "Topology does not have the molecule set as Protein. Program will crash"
     fi
 
-    #s
     # Check directories
     for d in $PetitDIR $StDIR $DelphiDir
       do
@@ -115,7 +107,25 @@ check_files ()
 	    message E "Error: CHARMM force field selected but rvdw and rcoulomb are not the default 1.0. If it is intended to not use the default parameters please add to your settings file the flag: export mdpoverride=1 "
 	fi
     fi
+
+    #################################
+    ## Check RT values if RT is on ##
+    #################################
+    if [[ $ReduceTitration == 1 ]] ; then
+	if [ -z $RTInterval ] ; then
+	    message E "Error: Reduced Titration has been turned on but no interval was given."
+	else
+	    message W "Reduced titration has been selected to run at intervals of $RTInterval cycles with a threshold of $RTThreshold "
+	fi
+    fi
     
+    #####################################
+    ## Check if plumed is being used ##
+    #####################################
+    if [[ $plumed != "0" ]] && [[ ! -f ${runname}_plumed.dat ]] ;then
+	message E  "File ${runname}_plumed.dat not found... Program will crash"        
+    fi
+	
 }
 
 
@@ -403,7 +413,12 @@ make_sites ()
               };
               if (write) print $0}
         }' TMP_aux.top > TMP_CpHMD_charge.top
-	
+    else
+	### May become bugged when unknown ffs are given but
+	### Solution added for testing the XOL3 ff from tomás
+	### It is always expecting a TMP_CpHMD_charge.top
+	### hence it was needed for creation
+	cat TMP_CpHMD.top > TMP_CpHMD_charge.top
     fi
 
     ##################### Adition for offset check ############################
@@ -607,15 +622,125 @@ run_PBMC()
     #
     #### ADD reduce titration code here! ####
 
+    if [[ $write_states == "y" ]]; then  # added #AB 2020
+	gawk -v c=$Cycle '
+              /^\./ && $4!~"tot" {s=$4; gsub($1" +"$2" +"$3" +"$4,"");p[s]=$0};
+              /^>/ {n[$3]=$2};
+              END {print "# Cycle "c;for(s in n)printf "%-13s %s\n",n[s],p[s];
+                   print "#"}
+              ' TMP_MCarlo.out >> ${runname}.pocc_RT
+	awk '/^f/ {print}' TMP_MCarlo.out >> ${runname}.pocc_RT
+    fi
+
+    if [ $1 = "red" ]; then 
+	# Clear the .sites file before the new one is created 
+        # (need to do this in order to work in case of empty .sites 
+        # from reduced titration)
+	message W "Doing PBMC cycle with all residues to establish the reduced sites!"
+        rm -f ${runname}.sites ; touch ${runname}.sites
+
+	#####################################################
+	### Define which sites should be titrating or not ###
+	#####################################################
+	
+        gawk -v t=$RTThreshold -v Allsites=${runname}-all.sites \
+            -v Redsites=${runname}.sites '
+        BEGIN{
+          # Read petit output (all-site CE/MC):
+ 	  ### First getting the lines from the termini
+	  ### Required to make sure all termini are kept
+	  ### titrating (hardcoded requirement unfortunately)
+	  while (getline < "TMP_MCarlo.out")
+          {
+	  # Addition NO: identify if any of the sites is a termini
+	    if ($0 ~ /^>/ )
+	    {
+	     if ($2 ~ /NTR/ || $2 ~ /CTR/) 
+	     {
+	      termini[$3+1] = 1;	     
+	     }
+	    }
+	  }
+	  close("TMP_MCarlo.out") ;
+          while (getline < "TMP_MCarlo.out")
+          {
+          # Read occR (from all-site CE/MC):
+          if ($0 ~ /^f/)
+          {
+            nsites = NF - 1 ;
+            for(i = 2 ; i <= NF ; i++) occR[i-1] = $i ;
+          }
+          # Read moccR (from all-site CE/MC):
+          if ($0 ~ /^\./ && $0 !~ /tot/)
+          {
+            moccR[$4+1] = $5 ;
+            m = 0 ;
+	    for (i = 6 ; i <= NF ; i++) 
+              if($i > m)
+              {
+                m = $i ;a
+                # state with maximum population:
+                maxstate[$4+1] = i - 6 ;
+                # maximum population of that state:
+                maxocc[$4+1] = $i ;
+             }
+           # If maximum population is above threshold, make switched=0, 
+            # indicating that site would be fixed (in state maxstate)
+            # during next MD segments.
+            switched[$4+1] = (maxocc[$4+1] > 1-t ? 0 : 1) ;
+	    ## Apply correction to the switch to ensure termini are always titrating
+	    ## Make switch always 1 to resnumbers that are termini
+	    if (termini[$4+1] > 0)
+	    {
+	     switched[$4+1] = 1
+	    }
+          }
+          # Make input (first part of) for update of charges in .top:
+          if ($0 !~ /^f/) print $0 > "TMP_MCarlo_mod.out" ; #SC 2018-05-29
+          }
+          close("TMP_MCarlo.out") ;
+        
+          # Make input (second part of) for update of charges in .top (among other things):
+          printf("f ") > "TMP_MCarlo_mod.out" ; #SC 2018-05-29
+          for (i = 1 ; i <= nsites ; i++)
+          {
+            printf ("%d ", maxstate[i]) > "TMP_MCarlo_mod.out" ; #SC 2018-05-29
+  
+            #Make input file for state_pqr with most abundant state
+            #printf ("%d\n", maxstate[i]) > "TMP_statepqr.in"
+
+            printf ("%s ", switched[i] == 0 ? maxstate[i] : "-") > "TMP_template_occ" ; 
+            printf ("%s ", switched[i] == 0 ? moccR[i] : "-") > "TMP_template_mocc" ; 
+          }
+          printf("\n") > "TMP_MCarlo_mod.out" ;
+          printf("\n") > "TMP_template_occ" ;
+          printf("\n") > "TMP_template_mocc" ;
+        
+          # Make .sites:
+          n = 1 ;
+          while (getline < Allsites)
+          {
+            if (switched[n] == 1) print $0 > Redsites ;
+            n++ ;
+          }
+          close(Allsites) ;
+        }'
+
+	# Making Log for .sites
+        echo "This is the .sites file at Cycle = $Cycle" >>  ${runname}-reducedtitration.sites
+        cat ${runname}.sites >> ${runname}-reducedtitration.sites
+    fi
+
     #########################################
     # Removing PB related auxiliary files
+    #########################################
 
     rm -f ${runname}.{summ,pqr*,dat,pkcrg,g,pkint,out} \
-        *.potat TMP_aux* TMP_mead_out TMP_mead_error 
+        *.potat TMP_aux* 
 
 }
 
-write_fractions ()
+write_fractions_all_sites ()
 {
     # Write the occupation files
     awk '
@@ -648,6 +773,58 @@ write_fractions ()
 
 }
 
+## Write fractions needs to be well integrated within the reduced tit cycle ##
+ 
+write_fractions ()
+{
+    # Write the occupation files
+    awk -v t=$ReduceTitration '
+    BEGIN{
+    
+      # Read petit output (CE/MC):
+      while (getline < "TMP_MCarlo.out")
+      {
+        # Read occ (from CE/MC):
+        if ($0 ~ /^f/)
+        {
+          nsites = NF - 1 ;
+          for(i = 2 ; i <= NF ; i++) tocc[i-1] = occ[i-1] = $i ;
+        }
+        # Read mocc (from CE/MC):
+        if ($0 ~ /^\./ && $0 !~ /tot/) tmocc[$4+1] = mocc[$4+1] = $5 ;
+      }
+      close("TMP_MCarlo.out") ;
+      # If t != 0 read templates and override tocc and tmocc:
+      if (t != 0)
+      {
+        getline < "TMP_template_occ" ;
+        nsites = split($0, tocc) ;
+        getline < "TMP_template_mocc" ;
+        split($0, tmocc) ;
+        c = 0 ;
+      }
+
+      # Write tocc and tmocc:
+      for (i = 1 ; i <= nsites ; i++)
+      {
+	# Substitute "-" with corresponding occ and mocc entries:
+        if (t != 0 && tocc[i] == "-")
+        {
+          c++ ;
+          tocc[i] = occ[c] ;
+          tmocc[i] = mocc[c] ;
+        }
+
+        printf ("%d ", tocc[i]) >> "TMP_CpHMD.occ" ;
+        printf ("%f ", tmocc[i]) >> "TMP_CpHMD.mocc" ;
+      }
+      printf("\n") >> "TMP_CpHMD.occ" ;
+      printf("\n") >> "TMP_CpHMD.mocc" ;
+    
+    }'
+
+}
+
 update_topology ()
 {
     mv TMP_CpHMD.top TMP_CpHMD-pre.top
@@ -658,7 +835,15 @@ update_topology ()
     ### First we create a state_file similar to the output of MEAD ###
     
     # Getting res number and res name #
-    awk '{print $1, substr($2,1,3)}' ${runname}.sites > aux_sites.sites
+    if [ $ReduceTitration == 1 ] ; then
+	if [ $((Cycle % RTInterval)) -eq 1 ]; then
+	    awk '{print $1, substr($2,1,3)}' ${runname}-all.sites > aux_sites.sites
+	else
+	    awk '{print $1, substr($2,1,3)}' ${runname}.sites > aux_sites.sites
+	fi
+    else
+	awk '{print $1, substr($2,1,3)}' ${runname}-all.sites > aux_sites.sites
+    fi
 
     # Getting the prot states from the montecarlo output #
 
@@ -682,14 +867,65 @@ run_dynamics ()
         -c TMP_$2.gro -p TMP_CpHMD.top -pp TMP_processed.top \
         -n TMP_CpHMD.ndx -o TMP_$1.tpr -maxwarn 1000 -quiet
 
-    $mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
+    if [[ $1 == "effective" ]] && [ "${plumed}" -eq "1" ] ### Do metaD parts 
+    then
+	case $plumedtype in
+	    grid)
+		if [ $Cycle -eq "1" ] ; then
+		    sed '/RESTART /d' ${runname}_plumed.dat > ${runname}_first.dat
+		    sed -i "s/GRID_RFILE=$grid_name//" ${runname}_first.dat
+
+		    $mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
+			   -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr -quiet \
+			   -plumed ${runname}_first.dat -nice 19 
+
+		else
+		    
+		    $mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
+			   -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr -quiet \
+			   -plumed ${runname}_plumed.dat -nice 19
+		fi
+		
+		mv ${hills} ${hills}_$Cycle
+		;;
+	    hill)
+		if [ $Cycle -eq "1" ] ; then
+		    sed '/RESTART /d' ${runname}_plumed.dat > ${runname}_first.dat
+		    sed -i "s/GRID_RFILE=$grid_name//" ${runname}_first.dat
+		    
+		    $mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
+			   -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr -quiet \
+			   -plumed ${runname}_first.dat -nice 19
+		    
+		else
+		    $mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
+			   -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr -quiet \
+			   -plumed ${runname}_plumed.dat -nice 19
+		fi
+	    ;;
+	    static)
+		$mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
+		       -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr -quiet \
+		       -plumed ${runname}_plumed.dat -nice 19
+	    ;;
+	esac
+    else 
+	
+	$mdrun -s TMP_$1.tpr -x TMP_$1.xtc -c TMP_$1.gro \
         -e TMP_$1.edr -g TMP_$1.log -o TMP_$1.trr \
-        -nice 19 # SC-14-12-2011
+        -nice 19 
+    fi
+
+    #### Check for plumed errors ####
+    if grep -q "PLUMED error" ./${SysName}_*.err
+    then
+	message E "PLUMED error triggered. Something in the PLUMED setup was not correctly setup."
+    fi
 
     rm -f \#*
 }
 
-run_relaxation () #SC 28-11-2011
+run_relaxation ()
 {
     #Solvent relaxation
     run_dynamics relax effective
@@ -700,7 +936,6 @@ run_relaxation () #SC 28-11-2011
     awk -v s=$SOL1st '$1 ~ s {exit};{print $0}' TMP_effective.gro > TMP_aux.gro
     awk -v s=$SOL1st '$1 ~ s {a=1};a'  TMP_relax.gro >> TMP_aux.gro
     
-#    mv -f TMP_relax.gro TMP_relax_DEBUG.gro
     mv -f TMP_aux.gro TMP_relax.gro
 
 }
@@ -724,6 +959,15 @@ data_append ()
     echo -e "$InitTime\n`echo $sim_time-$WriteTime | bc -l`" | \
         "$GroDIR" trjcat -f  $initxtc TMP_effective.xtc  \
                   -o TMP_CpHMD.xtc -settime
+    #
+    # Append HILLS for GRID setup
+    #
+    if [[ -f ${hills}_$Cycle && "${plumedtype}" == "grid" ]]
+    then
+	    cat ${hills}_$Cycle >> ${hills}_curr_seg
+    fi
+    #
+
     #
     # Append and backup remaining files
     if [ -f TMP_effective.log -o -f TMP_effective0.log ]
