@@ -632,7 +632,7 @@ run_PBMC()
 	awk '/^f/ {print}' TMP_MCarlo.out >> ${runname}.pocc_RT
     fi
 
-    if [ $1 = "red" ]; then 
+    if [[ ! -z $1 && $1 = "red" ]]; then 
 	# Clear the .sites file before the new one is created 
         # (need to do this in order to work in case of empty .sites 
         # from reduced titration)
@@ -917,7 +917,7 @@ run_dynamics ()
     fi
 
     #### Check for plumed errors ####
-    if grep -q "PLUMED error" ./${SysName}_*.err
+    if grep -q "PLUMED error" ./${blockname}_MD.log
     then
 	message E "PLUMED error triggered. Something in the PLUMED setup was not correctly setup."
     fi

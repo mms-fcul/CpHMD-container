@@ -226,7 +226,7 @@ for (( Cycle=1 ; Cycle <=$EndCycle ; Cycle++ )); do
 		# ... and call the PB/MC function,...
 		echo -n "PB/MC (All) -        Cycle = $Cycle; Date: `date "+%D %T"` - " \
 		     >> ${blockname}.info
-		run_PBMC red
+		run_PBMC red 
 		echo "`date "+%D %T"`" >> ${blockname}.info
 		write_fractions_all_sites
 		#
@@ -271,7 +271,7 @@ for (( Cycle=1 ; Cycle <=$EndCycle ; Cycle++ )); do
     if [ $RelaxSteps != 0 ]; then
         echo -n "MD relax     - Cycle = $Cycle; Date: `date "+%D %T"` - " \
             >> ${blockname}.info
-	run_relaxation #SC 28-11-2011
+	run_relaxation >> ${blockname}_MD.log 2>&1
         echo "`date "+%D %T"`" >> ${blockname}.info
     else
         mv TMP_effective.gro TMP_relax.gro
@@ -280,7 +280,7 @@ for (( Cycle=1 ; Cycle <=$EndCycle ; Cycle++ )); do
     # Call effective (full) dynamics
     echo -n "MD effective - Cycle = $Cycle; Date: `date "+%D %T"` - " \
         >> ${blockname}.info
-    run_dynamics effective relax
+    run_dynamics effective relax >> ${blockname}_MD.log 2>&1
     echo "`date "+%D %T"`" >> ${blockname}.info
     #
     # Call Append data function   
