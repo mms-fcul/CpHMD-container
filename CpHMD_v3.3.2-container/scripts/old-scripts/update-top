@@ -1,0 +1,298 @@
+#!/usr/bin/gawk -f
+###########################################################################
+# This file is part of ST-CpHMD, version v4.1_GMX2018.
+# 
+# Copyright (c) 2005-2020, Instituto de Tecnologia Quimica e Biologica,
+# Universidade Nova de Lisboa, Portugal.
+# 
+# ST-CpHMD is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 2 of the License, or (at your
+# option) any later version.
+# 
+# ST-CpHMD is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with ST-CpHMD.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# For further details and info check the manual.pdf file.
+# 
+# You can get ST-CpHMD at www.itqb.unl.pt/simulation
+###########################################################################
+
+###################################################################################
+# BRIEF DESCRIPTION:
+#
+# This program updates a GROMACS topology with new protonation states
+# read from a 'states' file (e.g., obtained from meadTools), using the
+# information contained in a 'dictionary' file with all
+# protonation-dependencies of the force field parameters (see the
+# the README file in the directory top).
+#
+###################################################################################
+# IMPORTANT FEATURES AND LIMITATIONS:
+#
+# - Any atom involved in protonation-dependent terms, either directly
+#   (through t or q entries) or indirectly (through b, a, d or i
+#   entries), is marked with the comment "changed by update-top" in
+#   the updated topology.
+#
+# - This program has been used only with GROMOS force fields, which
+#   are distributed in GROMACS using parameter macros (e.g., gb_13,
+#   ga_30, etc), but it should also work without macros, as long as
+#   each line in the dictionary (.dic) file uses the same form for its
+#   own parameters (i.e., either all macros or all non-macros; see the
+#   README file in the directory top). This would make easier to apply
+#   the program to force fields distributed in GROMACS without macros
+#   (e.g., AMBER), but should be properly tested.
+#
+# - The identification of improper dihedrals in the topology file
+#   (.top) is done in a way that ensures proper behaviour only for
+#   GROMOS force fields (see the corresponding comment in the
+#   code). The proper treatment of improper dihedrals may perhaps be
+#   done for other force fields using a similar approach, but keeping
+#   this program ff-dependent. Maybe a fully general approach within
+#   the GROMACS framework can be devised when non-GROMOS cases are
+#   examined.
+#
+# - The current version doesn't work if more than one force-field term
+#   of the same type is used for the same group of titrable atoms,
+#   because the .dic file has no way of distinguishing such multiple
+#   terms: e.g., if the torsion involving atoms 7, 8, 9 and 10 has two
+#   dihedral terms (as the phi and psi angles in G54A7) _and_ depends
+#   on protonation, there is no way to distinguish the two in the .dic
+#   file. This might be solved by parsing the .dic file and/or
+#   updating the .top file in a different way. However, such multiple
+#   entries seem to exist only for the GROMOS force fields, and only
+#   for titration-independent terms; so, the current approach will
+#   probably work for all cases arising in practice.
+#
+###################################################################################
+# AUTHORS:
+#
+# - Antonio M. Baptista, ITQB/UNL
+# - Sara R. R. Campos, ITQB/UNL
+#
+###################################################################################
+
+
+BEGIN{
+  # Parse arguments:
+  cmd = "update-top" ;
+  usage = "Usage:  "cmd" STATES_FILE DICTIONARY_FILE TOPOLOGY_FILE > ..." ;
+  if (ARGC != 4) error("Wrong number of arguments.\n" usage) ;
+  filecheck(states_file = ARGV[1]) ;
+  filecheck(dic_file = ARGV[2]) ;
+  filecheck(top_file = ARGV[3]) ;
+
+  # Number of atoms for each type of ff term:
+  natoms["t"] = natoms["q"] = 1 ;    # atom type (t), charge (q)
+  natoms["b"] = 2 ;                  # bond (b)
+  natoms["a"] = 3 ;                  # angle (a)
+  natoms["d"] = natoms["i"] = 4 ;    # dihedrals (d), improper dihedrals (i)
+  # Names of the sections in the topology:
+  seclong["b"] = "bonds" ;
+  seclong["a"] = "angles" ;
+  seclong["d"] = seclong["i"] = "dihedrals" ;
+
+  read_states() ;
+  read_dictionary() ;
+  process_top() ;
+
+  exit 0 ;
+}
+
+
+function read_states(\
+  s)
+{
+  while (getline < states_file)
+  {
+    s = ++nsites ;    # site index
+    state[s] = $1 ;   # current protonation state of site s
+    sres[s] = $2 ;    # residue number of site s
+    stype[s] = $3 ;   # residue type of site s (ASP, CT, HIS, etc)
+    nname[$2] = substr($3,1,2)$1 ;
+    if ( $3 != "NTR" &&  $3 != "CTR" )
+    {
+	titres[$2,substr($3,1,2)] = 1 ;
+	#nname[$2] = substr($3,1,2)$1 ;
+    }
+  }
+  close(states_file) ;
+}
+
+
+function read_dictionary(\
+  nat, nst, totpar, npar, s, i, p, sc, v)
+{
+  while (getline < dic_file)   # read one entry per line
+  {
+    nat = natoms[$2] ;        # number of atoms
+    nst = $(nat+3) ;          # number of protonation states
+    totpar = NF - nat - 3 ;   # total number of parameters after header
+    if (totpar % nst != 0)
+      error("Mismatched number of parameters in .dic line:\n  " $0) ;
+    npar = totpar / nst ;     # number of parameters per state (1 with GROMOS macros)
+
+    # Check which sites need the info of this dictionary entry and
+    # make the assignments required to later make the corresponding
+    # changes to the topology.
+    for (s = 1 ; s <= nsites ; s++)
+    {
+      if (stype[s] == $1)
+      {
+	v[$2] = 1 ;
+	# For each affected atom (even if indirectly through bonded terms),
+	# mark pair [res_numb,atom_name] as titrable:
+	for (i = 1 ; i <= nat ; i++) ptit[sres[s],$(i + 2)] = 1 ;
+	# Set idx = "residue_number t|q|b|a|d|i corresponding_atoms..."
+	# (e.g., "23 q ND1", "78 b CG OD1", "123 a CB CG OD1"):
+	idx = sres[s] ;
+	for (i = 2 ; i <= nat+2 ; i++) idx = idx " " $i ;
+	# Select parameter(s) appropriate for the site current protonation state:
+	parnow = "" ;
+	for (p = 1 ; p <= npar ; p++)
+	  parnow = parnow " " $(nat + 3 + state[s]*npar + p) ;
+	par[idx] = parnow ;
+      }
+    }
+  }
+  close(dic_file) ;
+
+  # Mark variable (i.e., protonation-dependent) sections, for faster processing of .top:
+  varsec = "" ;
+  for (sc in v)
+    if (v[sc] == 1 && sc !~ /^[qt]$/) varsec = varsec "|" seclong[sc] ;
+  varsec = "^(" substr(varsec,2) ")$" ;
+}
+
+
+function process_top(\
+  sec, nat, schar, idx, n, r, a, q, t, i)
+{
+  while (getline < top_file)
+  {
+    if ($1 ~ /^(#|;|$)/)
+    { # echo blank lines and those starting with macros or comments
+      print $0 ;
+      continue ;
+    }
+    if ($1 == "[" && $3 == "]")
+    { # read section header
+      if (sec == "atoms" && sec != $2) process_atoms = 1 ;
+      sec = $2 ;
+      schar = substr(sec,1,1) ;
+      nat = natoms[schar] ;
+      print $0 ;
+      continue ;
+    }
+    if (process_atoms == 1)
+    { # define new variables after all atoms were read
+      for (idx in par)
+      {
+	if (idx !~ / [qt] /) # q and t entries no longer needed
+	{
+	  n = split(idx, a) ;
+	  r = a[1] ;
+	  newidx = a[2] ;
+	  for (i = 3 ; i <= n ; i++) newidx = newidx " " anumb[r,a[i]] ;
+	  atmpar[newidx] = par[idx] ;
+	  # The array atmpar[] is identical to par[], but its index
+	  # does not include the residue number and has all atom names
+	  # replaced by the corresponding atom numbers.
+	}
+      }
+      process_atoms = 0 ;
+      # These arrays could be cleaned...
+      #delete anumb ;
+      #delete ptit ;
+      #delete par ;
+    }
+    if (sec == "atoms")
+    { # read atoms
+      gsub(/; *qtot.*$/,"") ;  # remove qtot comments, which no longer apply
+      if (ptit[$3,$5] == 1)
+      {
+	anumb[$3,$5] = $1 ; # atom number for given residue number and atom name
+	q = par[$3" q "$5] ;
+	t = par[$3" t "$5] ;
+
+	if ( substr(nname[$3],1,2) != "NT" && substr(nname[$3],1,2) != "CT" )
+	{
+	printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; changed by update \n",
+	       $1, (t=="" ? $2 : t), $3, nname[$3], $5, $6, (q=="" ? $7 : q+0), $8) ;
+	}
+	else
+	{
+	    printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; changed by update-top \n",
+	       $1, (t=="" ? $2 : t), $3, $4, $5, $6, (q=="" ? $7 : q+0), $8) ;
+	}
+      }
+      else if ( titres[$3,substr($4,1,2)] == 1 )
+      {
+	  if ( substr(nname[$3],1,2) != "NT" && substr(nname[$3],1,2) != "CT" )
+	  {
+	      printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; updated the taut name \n",
+		     $1, $2, $3, nname[$3], $5, $6, $7, $8) ;
+	  }
+	  else
+	  {
+	      printf("%6d %10s %6d %6s %6s %6d %10s %10s  ; changed by tau-top name \n",
+		     $1, (t=="" ? $2 : t), $3, $4, $5, $6, (q=="" ? $7 : q+0), $8) ;
+	  }
+      }
+      
+      else print $0 ;
+    }
+    else if (sec ~ varsec)
+    { # only process sections with protonation-dependent terms
+      # ATTENTION: next line accounts for impropers in a GROMOS-specific way!
+      idx = (schar == "d" && $5 == 2 ? "i" : schar) ;
+      for (i = 1 ; i <= nat ; i++) idx = idx " " $i ;
+      if (atmpar[idx] != "")
+      {
+	for (i = 1 ; i <= nat ; i++) printf("%5d ", $i) ;
+	printf("%5d   %s  ; changed by update-top\n", $(nat+1), atmpar[idx]) ;
+      }
+      else print $0 ;
+    }
+    else print $0 ;
+  }
+}
+
+
+#########################################################################
+# Utilities:
+
+# System call with return status checking:
+function systemC(command)
+{
+  if (system(command)) error("Failed command: " command) ;
+}
+
+
+function filecheck(file)
+{
+  if (system("test -f "file))
+    error("File "file" does not exist.") ;
+  if (system("test -r "file))
+    error("File "file" exists but is not readable.") ;
+}
+
+
+function warning(msg)
+{
+  print cmd ": Warning: " msg | "cat 1>&2" ;
+}
+
+
+function error(msg)
+{
+  print cmd ": Error: " msg | "cat 1>&2" ;
+  exit 1 ;
+}
+

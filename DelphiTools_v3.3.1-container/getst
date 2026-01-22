@@ -1,0 +1,87 @@
+#!/usr/bin/gawk -f
+###########################################################################
+# This file is part of meadTools, version 2.0.0.
+# 
+# Copyright (c) 2001-2012, Antonio M. Baptista, Instituto de Tecnologia
+# Quimica e Biologica, Universidade Nova de Lisboa, Portugal.
+# 
+# meadTools is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 2 of the License, or (at your
+# option) any later version.
+# 
+# meadTools is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with meadTools.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# For further details and info check the README file.
+# 
+# You can get meadTools at <http://www.itqb.unl.pt/simulation>.
+###########################################################################
+
+
+############################################################################
+# getst: a program to get .st files.
+#
+# This program reads a .sites file and gets the necessary .st files
+# from the specified directory.  If some .st file is not found but
+# starts with NT or CT, the corresponding 'ALA' files are adapted;
+# otherwise, an error occurs.
+############################################################################
+
+
+BEGIN{
+  cmd = "getst" ;
+  usage = "Usage:  "cmd" SITES_FILE ST_DIR" ;
+  if (ARGC != 3) error("Wrong number of arguments.\n" usage) ;
+  filecheck(sitesfile = ARGV[1]) ;
+  stdir = ARGV[2] ;
+
+  while (getline < sitesfile)
+    for(i = 2 ; i <= NF ; i++) stlist[$i] = 1 ;
+
+  for (s in stlist)
+  {
+    source = stdir"/"s".st" ;
+    if (system("test -f "source) == 0) system("cp "source" .") ;
+    else if (s ~ /^(NT|CT)/)
+    {
+      type = substr(s, 1, 2) ;
+      suff = substr(s, match(s,"(tau|avx|all)")) ;
+      res = substr(s, 3, length(s) - length(suff) - 2) ;
+      filecheck(source = stdir"/"type"ALA"suff".st") ;
+      target = s".st" ;
+      while (getline < source)
+      {
+	sub("ALA",res) ;
+	print $0 > target ;
+      }
+      close(source) ; 
+    }
+    else error("File "source" does not exist.") ;
+  }
+}
+
+function filecheck(file)
+{
+  if (system("test -f "file))
+    error("File "file" does not exist.") ;
+  if (system("test -r "file))
+    error("File "file" exists but is not readable.") ;
+}
+
+function warning(msg)
+{
+  print cmd ": Warning: " msg | "cat 1>&2" ;
+}
+
+function error(msg)
+{
+  print cmd ": Error: " msg | "cat 1>&2" ;
+  exit 1 ;
+}
+

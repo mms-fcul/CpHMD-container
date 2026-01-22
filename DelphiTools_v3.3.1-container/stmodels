@@ -1,0 +1,187 @@
+#!/usr/bin/gawk -f
+###########################################################################
+# This file is part of meadTools, version 2.0.0.
+# 
+# Copyright (c) 2001-2012, Antonio M. Baptista, Instituto de Tecnologia
+# Quimica e Biologica, Universidade Nova de Lisboa, Portugal.
+# 
+# meadTools is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 2 of the License, or (at your
+# option) any later version.
+# 
+# meadTools is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with meadTools.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# For further details and info check the README file.
+# 
+# You can get meadTools at <http://www.itqb.unl.pt/simulation>.
+###########################################################################
+
+
+############################################################################
+# stmodels: a program to create st-defined model compounds.
+#
+# This program makes possible to run MEAD calculations using model
+# compounds containing only the atoms included in the .st files.  This
+# procedure ensures that there is no overlap of the different
+# fragments resulting from the decomposition of the Poisson-Boltzmann
+# into individual and pairwise energy terms. This is a theoretical
+# requirement and can also have significant practical effects on the
+# values computed for the energy terms, especially when a residue has
+# both a titrable side-chain and a titrable N- or C-terminus.
+#
+# The program reads a .pqr file and a .sites file and writes their
+# modified counterparts by simply adding an offset to the residue
+# numbers (or 2 or 3 times the offset in the case of, respectively,
+# the N-termini or C-termini). The program also needs to read the .st
+# files.  The modified files are presently labeled with the somewhat
+# arbitrary suffix "_stmod" and are written without checking if they
+# already exist (which may be actually convenient in some cases).
+#
+# To revert to the normal numbering after the MEAD calculations, it is
+# just necessary to fix the residue numbers in the .pkint or .pkcrg
+# files (which have the same format).  For example, an offset of 1000
+# would require the command:
+#    awk -v off=1000 '{match($0,/(^.+-)([0-9]+)$/,a);print a[1] a[2]-off*(1+($3~/^NT/)+2*($3~/^CT/))}' abcd_stmod.pkcrg > abcd.pkcrg
+# Although this simple command could of course be made into a script,
+# that seems unnecessary.
+############################################################################
+
+
+BEGIN{
+
+  cmd = "stmodels" ;
+  suf = "_stmod" ;
+  usage = \
+    "Usage: "cmd" OFFSET NAME1.pqr NAME2.sites [ST_DIR]\n" \
+    "OFFSET should be an integer higher than any residue number in NAME1.pqr.\n" \
+    "If no ST_DIR is given for the .st files, the current directory is assumed.\n" \
+    "The new files are written to NAME1"suf".pqr and NAME2"suf".sites." ;
+
+  # Parse arguments:
+  if (ARGC != 4 && ARGC != 5) error("Wrong number of arguments.\n" usage) ;
+  offset = ARGV[1] ;
+  filecheck(new_pqr_file = pqr_file = ARGV[2]) ;
+  sub(/\.pqr/, suf ".pqr" , new_pqr_file) ;
+  filecheck(new_sites_file = sites_file = ARGV[3]) ;
+  sub(/\.sites/, suf ".sites" , new_sites_file) ;
+  if (ARGC == 5) st_dir = ARGV[4] ;
+  else st_dir = "." ;
+
+  nt = ct = 0 ;
+
+  # Check offset:
+  while (getline < pqr_file) if ($5 > max) max = $5 ;
+  close(pqr_file) ;
+  if (max >= offset) error("Highest residue number >= OFFSET.") ;
+
+  # Read sites file and write a new one with corrected residue numbers:
+  printf "" > new_sites_file ;
+  while (getline < sites_file)
+  {
+    resnumb = $1 ;
+    # For the termini add the offset 2 (NT) or 3 (CT) times:
+    term = ( $2 ~ /^NT/ ? 1 : ($2 ~ /^CT/ ? 2 : 0) ) ;
+
+
+#   In test
+    if (term == 1) {
+      nt++ ;
+      ntres[nt] = resnumb + offset * 2 ;
+      printf("%4d  NTRtau1 NTRtau2 NTRtau3\n", 
+	     resnumb + offset * 2) > new_sites_file ;
+    } else if (term == 2) {
+      ct++ ;
+      ctres[ct] = resnumb + 500 + offset * 2 ;
+      printf("%4d  CTRtau1 CTRtau2 CTRtau3 CTRtau4\n", 
+	     resnumb + 500 + offset * 2) > new_sites_file ;
+    } else {
+      sub(/^ *[0-9]+/, resnumb + offset*(1+term), $0) ;
+      print $0 > new_sites_file ;
+    }
+#   In test
+
+
+    filecheck(st_file = st_dir "/" $2 ".st") ;
+    getline < st_file ;       # read line with pKint value
+    while (getline < st_file)
+    {
+      if (!term && $2 ~ /^(N|H|C|O)$/)
+	error("Backbone-named atom " $2 " found in " st_file) ;
+      if (term!=2) {
+	  add[resnumb,$2] = offset*(1+term) ;
+      }
+      else {
+	  add[resnumb,$2] = 500 + offset*(term)
+      }
+    }
+    close(st_file) ;
+  }
+  close(sites_file) ;
+  close(new_sites_file) ;
+
+  # Read pqr file and write a new one with corrected residue numbers:
+  while (getline < pqr_file)
+  {
+    if (add[$5,$3] == "") print $0 > new_pqr_file ;
+    else
+    {
+
+
+      found = 0 ;
+      match($0, /( *[^ ]+ +[^ ]+ +[^ ]+ +[^ ]+)( +[^ ]+)(.+$)/,a) ;
+      for (i = 1; i <= nt; i++) {
+
+	if ((a[2]+add[$5,$3]) == ntres[i]) {
+	  printf("%s NTR %" length(a[2])-1 "d%s\n",
+		 substr(a[1],1,length(a[1])-4), a[2]+add[$5,$3], a[3]) > new_pqr_file ;
+	  found = 1 ;
+	}
+      }
+      for (i = 1; i <= ct; i++) {
+
+	if ((a[2]+add[$5,$3]) == ctres[i]) {
+	  printf("%s CTR %" length(a[2])-1 "d%s\n",
+		 substr(a[1],1,length(a[1])-4), a[2]+add[$5,$3], a[3]) > new_pqr_file ;
+	  found = 1 ;
+	}
+      }
+      if (found == 0) 
+	  printf("%s %" length(a[2])-1 "d%s\n",
+		 a[1], a[2]+add[$5,$3], a[3]) > new_pqr_file ;
+
+
+
+    }
+  }
+  close(pqr_file) ;
+  close(new_pqr_file) ;
+}
+
+function filecheck(file)
+{
+  if (system("test -f "file))
+    error("File "file" does not exist.") ;
+  if (system("test -r "file))
+    error("File "file" exists but is not readable.") ;
+}
+
+function warning(msg)
+{
+  print cmd ": Warning: " msg | "cat 1>&2" ;
+  close ("cat 1>&2") ;
+}
+
+function error(msg)
+{
+  print cmd ": Error: " msg | "cat 1>&2" ;
+  close ("cat 1>&2") ;
+  exit 1 ;
+}
+

@@ -1,0 +1,524 @@
+#! /usr/bin/env bash
+
+##########################################################################################
+#--INTRODUCTION-- lcsfilipe 2010
+#The output of this script is a index (.ndx) file to be used with the Constant-pH Stochastic Titration Program (Baptista and Machuqueiro),
+#and a LOG (TMP_make_ndx.log)file to check if everything went on alright.
+#This script is necessary because the number of default outputted by GROMACS's make_ndx program, changes with the .gro content.
+#This script outputs a NDX file with a fix content, which is as follows:
+#
+#  0 System              : 
+#  1 Protein             : 
+#  2 SOL                 : 
+#  3 DNA                 : 
+#  4 RNA                 : 
+#  5 Ion                 : 
+#  6 Lipid               : 
+#  7 Lipid-Tails         : 
+#  8 Organic             : 
+#  9 Carbohydrate        : 
+# 10 SOLV                : 
+# 11 Other               :
+# 12 PBMC                :
+#
+#For the content of an NDX file to be fixed regardless of the GRO file there will have (in the majority of cases) to exist some empty groups (atom-free groups).
+
+function check_for_repetitions { # self-explanatory
+    local array_string=$1[*]
+    local loc_array=(${!array_string})
+    for check_repetition in ${loc_array[@]}
+    do
+	check_str=( $(awk -v name="${check_repetition}" '!/^[#;@]/{if ( $1 == name ){print $1,$2}}' $2) )
+	if [ ${#check_str[@]} -eq 1 ]
+	then
+	    echo "WARNING: Residue:${check_repetition} - is not assign to a group in $2. Please fill the entry correctly... Program will crash"
+	    echo -e "\nWARNING: Residue:${check_repetition} - is not assign to a group in $2. Please fill the entry correctly.\n" >> $3
+		exit 18 #########################IMP - machuque
+	else
+	    if [ ${#check_str[@]} -ne 2 ] && [ "${check_str[1]}" != "${check_str[3]}" ]
+	    then
+		echo "WARNING: Residue:${check_repetition} - is repeated in $2, under diferent groups: ${check_str[1]} and ${check_str[3]}. Please eraze one of the entries... Program will crash"
+		echo -e "\nWARNING: Residue:${check_repetition} - is repeated in $2, under diferent groups: ${check_str[1]} and ${check_str[3]}. Please eraze one of the entries.\n" >> $3
+		exit 16 #########################IMP - machuque
+	    elif [ ${#check_str[@]} -ne 2 ] && [ "${check_str[1]}" == "${check_str[3]}" ]
+	    then
+		echo "WARNING: Residue:${check_repetition} - is repeated in $2. This is not critical, but you should eraze one of the entries."
+		echo -e "\nWARNING: Residue:${check_repetition} - is repeated in $2. This is not critical, but you should eraze one of the entries.\n" >> $3
+	    fi
+	fi
+    done
+}
+
+##########################################################################
+#Check the input parameters
+usage="Usage: `basename $0` GROin(input GRO file) NDXout(NDX output name) GroDIR(gromacs path) types_files_path(path to residuetypes.dat and usertypes.dat - ex: ./) TAILatom(Optional - Atom name used to select lipid tails, ex: C114)"
+
+# Define version:
+version="1.2" ;
+INFOname="make_ndx" 
+INFOversion="Version 1.2: November, 2011" ;
+
+# Parse arguments
+if [ $# == 0 ]; then
+    echo -e $usage >/dev/stderr
+    exit 1
+fi
+
+E_WRONGARGS=85
+
+if [ "$#" -ge "4" ] && [ "$#" -le "5" ]; # Check for proper number of command-line args.
+then
+
+###########################################################################
+#--ASSIGN INITIAL VARIABLES & CHECK DEFAULT GROUPS--
+#(1) Set the name for: output file, input GRO file, gromacs path, auxiliar file name, usertypes.dat and residuetypes.dat location, atom to select the lipid tail
+#(2) Run make_ndx to check for default groups
+
+    gro_file=$1                   #Input GRO
+    ndx_out=${2%*.ndx}".ndx"      #Output name
+    GroDIR=${3%*/}/               #GROMACS path
+    tail_atom=$5                  #Lipid Tail atom name
+    
+    residue_file=${4%*/}/"residuetypes.dat"        #residuetypes.dat name &| path
+    user_file=${4%*/}/"usertypes.dat"              #usertypes.dat name &| path
+
+#### add info to logfile
+    cmd_str="$0 ${@}"
+
+#### check the input
+    for i in ${gro_file} ${GroDIR} ${residue_file}
+    do
+	if [ ! -e ${i} ]
+	then
+	    echo "ERROR: ${i} doesn't exits."
+	    exit 0
+	fi
+    done
+
+    aux_file=aux_make_ndx-CpH_$RANDOM.ndx #Auxiliar file name, not user definable
+    ndx_TMP=aux_TMP_$RANDOM.ndx           #Auxiliar file name, not user definable
+    log_file=TMP_make_ndx.log             #LOG file name, not user definable
+
+###########################################################################
+#Case the usertypes.dat file does not exist create an empty one
+    if [ ! -f ${user_file} ]
+    then
+	day=$(date)
+	echo -e ";Created by make_ndx-CpH.sh on $HOSTNAME ($USER) at ${day};This script is used by the make_ndx-CpH.sh program. You can assign residues to diferent groups through it. The \";@#\" characters can be used to insert comments.\n;This file only works for: 'Lipid', 'Organic', 'Carbohydrate', 'Other'. As the group 'Other' means \"everything\" this script always works, as long as the user puts the unaccounted residues in the 'Other' group.\n;'Protein', 'DNA', 'RNA', 'Ion' and 'SOL' groups should be in the residuetypes.dat file.\n;The correct usage is - residue(1st column) group(2nd column). Example (remove the comment mark):\n;DPPC	Lipid" > ${user_file}
+	VARuserf="TRUE"
+    fi
+    
+###########################################################################
+#--PRE-PROCESSING--
+#(1) Check if there are any repetitions in the "residues" contained both in the residuetypes.dat and usertypes.dat
+#(2) Run make_ndx and convert the default output to an array (array_var1)
+#(3) Check if all groups reported by default are accounted in residuetypes.dat or usertypes.dat
+    
+    residue_name=( $(awk '!/^[#;@]/{print $1}' ${residue_file}) )  #array with all residuetypes.dat names 
+    residue_group=( $(awk '!/^[#;@]/{print $2}' ${residue_file}) ) #array with all residuetypes.dat names corresponding groups
+    
+    user_name=( $(awk '!/^[#;@]/{print $1}' ${user_file}) )  #array with all residuetypes.dat names 
+    user_group=( $(awk '!/^[#;@]/{print $2}' ${user_file}) ) #array with all residuetypes.dat names corresponding groups
+    
+#Check repetitions between usertypes.dat and residuetypes.dat
+    echo -e "-> ${INFOname} v${version}\n\n-> Command: ${cmd_str}\n\n----CHECKING RESIDUE REPETIONS IN ${residue_file} & ${user_file}----\n" > ${log_file}
+    for check_repetition in ${user_name[@]}
+    do
+	check_str="$(awk -v name="${check_repetition}" '!/^[#;@]/{if ( $1 == name ){print $0}}' ${residue_file})"
+	if [ -n "${check_str}" ] #If the residue exists in both files
+	then
+	    echo "WARNING: Residue:${check_repetition} - is repeated in ${residue_file} and ${user_file}. Please eraze one of the entries... Program will crash"
+	    echo -e "\nWARNING: Residue:${check_repetition} - is repeated in ${residue_file} and ${user_file}. Please eraze one of the entries.\n" >> ${log_file}
+	    exit 15 #########################IMP - machuque
+	fi
+    done
+
+    check_for_repetitions residue_name ${residue_file} ${log_file} #Check for repetitions in residuetypes.dat
+    check_for_repetitions user_name ${user_file} ${log_file} #Check for repetitions in usertypes.dat
+
+#Run make_ndx and convert the default output to an array (array_var1)
+    echo -e "q" | $GroDIR/make_ndx -f ${gro_file} -o ${ndx_TMP} -quiet | awk '/([a-zA-Z]?|[0-9]?) +:/{print $0}' | head --line=-1 > ${aux_file}
+    rm ${ndx_TMP}
+    
+    var1=$(awk '/([a-zA-Z]?|[0-9]?) +:/{print $2}' ${aux_file})
+    array_var1=( ${var1} )
+    
+    echo -e "----DEFAULT GROUPS: created by make_ndx----\n" >> ${log_file}
+    cat ${aux_file} >> ${log_file}
+
+#Check for residues missing in residuetypes.dat or usertypes.dat and issue a WARNING to the log file
+    echo -e "\n----CHECKING FOR DEFAULT RESIDUES NOT INCLUDED IN ${residue_file} & ${user_file}----\n" >> ${log_file}
+    for check_missing in ${array_var1[@]};
+    do
+	check_str="$(awk '!/^[#;@]/{print $0}' ${residue_file} ${user_file} | awk -v name="${check_missing}" '{if ( $1 == name ){print $0}}')"
+	
+	case ${check_missing} in ##This case statment avoids some commonly used names to be outputed as warnings
+	    System ) check_str="some text" ;;
+	    Protein ) check_str="some text" ;;
+	    Protein-H ) check_str="some text" ;;
+	    C-alpha ) check_str="some text" ;;
+	    Backbone ) check_str="some text" ;;
+	    MainChain ) check_str="some text" ;;
+	    MainChain+Cb ) check_str="some text" ;;
+	    MainChain+H ) check_str="some text" ;;
+	    SideChain ) check_str="some text" ;;
+	    SideChain-H ) check_str="some text" ;;
+	    Prot-Masses ) check_str="some text" ;;
+	    non-Protein ) check_str="some text" ;;
+	    Non-Protein ) check_str="some text" ;;
+	    Other ) check_str="some text" ;;
+	    water ) check_str="some text" ;;
+	    Water ) check_str="some text" ;;
+	    SOL ) check_str="some text" ;;
+	    Sol ) check_str="some text" ;;
+	    non-Water ) check_str="some text" ;;
+	    non-water ) check_str="some text" ;;
+	    Non-Water ) check_str="some text" ;;
+	    Water_and_ions ) check_str="some text" ;;
+	    water_and_ions ) check_str="some text" ;;
+	    DNA ) check_str="some text" ;;
+	    RNA ) check_str="some text" ;;
+	    Ion ) check_str="some text" ;;
+	esac
+	
+	if [ -z "${check_str}" ] #If the residue doesn't exists in both files
+	then
+	    echo "WARNING: ${check_missing} is not defined. Neither in ${residue_file} nor in ${user_file}. You must creat an entry for it."
+	    echo -e "\nWARNING: ${check_missing} is not defined. Neither in ${residue_file} nor in ${user_file}. You must creat an entry for it.\n" >> ${log_file}
+	    rm ${aux_file} ##############IMP machuque
+	    exit 17 ####################IMP machuque
+	fi
+    done
+    
+    
+###########################################################################
+#RUNNING
+###########################################################################
+    
+#From the default make_ndx groups select the ones to maintain (if they exist). The others go to a new array (array_new) for post-processing.
+    for i in ${array_var1[@]};
+    do
+	case $i in
+	    System ) system_var=$(awk '/ System +:/{print $1}' ${aux_file}) && array_default[0]="${system_var}" && status[0]="$i" ;;
+	    Protein ) system_var=$(awk '/ Protein +:/{print $1}' ${aux_file}) && array_default[1]="${system_var}" && status[1]="$i" ;;
+	    SOL ) system_var=$(awk '/ SOL +:/{print $1}' ${aux_file}) && array_default[2]="${system_var}" && status[2]="$i" ;;
+	    DNA ) system_var=$(awk '/ DNA +:/{print $1}' ${aux_file}) && array_default[3]="${system_var}" && status[3]="$i" ;;
+	    RNA ) system_var=$(awk '/ RNA +:/{print $1}' ${aux_file}) && array_default[4]="${system_var}" && status[4]="$i" ;;
+	    Ion ) system_var=$(awk '/ Ion +:/{print $1}' ${aux_file}) && array_default[5]="${system_var}" && status[5]="$i" ;;
+	    * ) array_new=( "${array_new[@]}" "${i}" ) ;;
+	esac
+    done
+    
+    echo -e "\n----DEFAULT GROUPS KEPT----\n" >> ${log_file}
+    echo -e "${status[@]}\n" >> ${log_file}
+    
+    default_groups="$(echo ${array_default[@]} | sed s/" "/"\\\n "/g)" #string with the default make_ndx number for the groups that must be kept
+    
+#Determine which default groups must be deleted and create a string (create_delete) issuing that command
+    var1_length=${#array_var1[@]}
+    let end_number=(${var1_length}-1) 
+    create_delete="${default_groups}\n del 0-${end_number}\n"
+    
+#Check which of the possible default groups are empty
+    for check_empty in 0 1 2 3 4 5
+    do
+	t1str=${status[${check_empty}]}
+	t2str=${#t1str}
+	if [ ${t2str} -eq 0 ]
+	then
+	    case $check_empty in
+		0 ) index_gp="System";;
+		1 ) index_gp="Protein";;
+		2 ) index_gp="SOL";;
+		3 ) index_gp="DNA";;
+		4 ) index_gp="RNA";;
+		5 ) index_gp="Ion";;
+	    esac
+	    empty[${check_empty}]="${index_gp}"
+	else
+	    continue
+	fi
+    done
+    
+#Check if the groups SOL and/or Ion are present in the default groups and create an array, that will later be use to build the 'SOLV' group 
+    count=0
+    for member_SOLV in ${status[@]}
+    do
+	case $member_SOLV in
+	    SOL ) make_SOLV=( "${make_SOLV[@]}" "${count}" ) && addSOLV=( "${addSOLV[@]}" "${member_SOLV}" ) ;;
+	    Ion ) make_SOLV=( "${make_SOLV[@]}" "${count}" ) && addSOLV=( "${addSOLV[@]}" "${member_SOLV}" ) ;;
+	esac
+	((count++))
+    done
+
+#Check if the groups DNA and/or RNA and/or Protein are present in the default groups and create an array, that will later be use to build the 'PBMC' group 
+    count=0
+    for member_PBMC in ${status[@]}
+    do
+	case $member_PBMC in
+	    Protein ) make_PBMC=( "${make_PBMC[@]}" "${count}" ) && addPBMC=( "${addPBMC[@]}" "${member_PBMC}" ) ;;
+	    DNA ) make_PBMC=( "${make_PBMC[@]}" "${count}" ) && addPBMC=( "${addPBMC[@]}" "${member_PBMC}" ) ;;
+	    RNA ) make_PBMC=( "${make_PBMC[@]}" "${count}" ) && addPBMC=( "${addPBMC[@]}" "${member_PBMC}" ) ;;
+	esac
+	((count++))
+    done
+    
+#For the groups present in array_new (default groups other than System, Protein, SOL, DNA, RNA and Ion) determine which ones are present in the residuetypes.dat and usertypes.dat files, and group them accordingly
+    for default_group in ${array_new[*]}
+    do
+	var2=$(cat ${residues_file} ${user_file} | awk -v lfg="${default_group}" 'BEGIN{stat="FALSE"}!/^[#@;]/{if ( $1 == lfg ){ stat="TRUE"; group=$2 } }END{print stat, group}')
+	array_var2=( ${var2} )
+	
+	if [ ${array_var2[0]} == "TRUE" ]
+	then
+	    case ${array_var2[1]} in
+		Lipid ) array_lipid=( "${array_lipid[@]}" "${default_group}" ) ;;
+		Organic ) array_organic=( "${array_organic[@]}" "${default_group}" ) ;;
+		Carbohydrate ) array_carbohydrate=( "${array_carbohydrate[@]}" "${default_group}" ) ;;
+		Other ) array_other=( "${array_other[@]}" "${default_group}" ) ;;
+	    esac
+	    
+	elif [ ${array_var2[0]} == "FALSE" ]
+	then
+	    continue
+	else
+	    echo "PROBLEM CREATING INDEX FILE, ABORTING!!!!!!! CHECK THE make_ndx-CpH.sh FILE FOR DETAILS."
+	    exit 89
+	fi
+    done
+    
+#Create a count that starts in the last number of the default groups kept and is incremented as new groups are created (will correspond to the group number) 
+    counter=${#array_default[@]}
+    
+#########################################################################################
+#If new residues were identified create the commands to select them using make_ndx.
+#If no element is detected for a certain group assign the group to an array called 'empty'
+    
+##############################################################
+#LIPID
+    if [ ${#array_lipid[@]} -ne 0 ]
+    then
+	aux_lipid1=$( echo "${array_lipid[@]}" | sed s/" "/" | r "/g )
+	aux_lipid2="r ${aux_lipid1}\n"
+	aux_lipid3="name ${counter} Lipid\n"
+	array_add_comands=( "${array_add_comands[@]}" "${aux_lipid2}" "${aux_lipid3}" )
+
+	make_PBMC=( "${make_PBMC[@]}" "${counter}" ) #if this group exist, them add it to the 'PBMC' array  
+	addPBMC=( "${addPBMC[@]}" "Lipid" ) 
+
+	added=( "${added[@]}" "Lipid" )
+	echo -e "\n----RESIDUES CONSIDERED AS LIPIDS----\n" >> ${log_file}
+	echo -e "${array_lipid[@]}\n" >> ${log_file}
+	((counter++))
+    ###################################################################
+    #LIPID-TAILS - If the tail_atom varible is defined do:
+	check_tail=$(awk -v tail="${tail_atom}" 'NR>2{if ( $2 == tail ){print $0}}' ${gro_file})
+	if [ -n "${tail_atom}" ] && [ -n "${check_tail}" ]
+	then
+	    let lipid_counter=(${counter}-1)
+	    aux_tail1="${lipid_counter} & a ${tail_atom}\n"
+	    aux_tail2="name ${counter} Lipid-Tails\n"
+	    array_add_comands=( "${array_add_comands[@]}" "${aux_tail1}" "${aux_tail2}" )
+	    
+	    added=( "${added[@]}" "Lipid-Tails" )
+	    echo -e "\n----LIPID-TAILS EXIST?----\n" >> ${log_file}
+	    echo -e "YES, selected lipids atoms: ${tail_atom} as reference.\n" >> ${log_file}
+	    ((counter++))
+	elif [ -n "${tail_atom}" ] && [ -z "${check_tail}" ]
+	then
+	    echo -e "Lipid-Tail selection IMPOSSIBLE, the reference atom: ${tail_atom}, doesn't exists.\n"
+	    echo -e "\n----LIPID-TAILS EXIST?----\n" >> ${log_file}
+	    echo -e "NO, the reference atom: ${tail_atom}, doesn't exist in ${gro_file}.\n" >> ${log_file}
+	    empty[7]="Lipid-Tails"
+	    rm ${aux_file}
+	    exit 19 ##################IMP machuque
+	elif [ -z "${tail_atom}" ]
+	then
+	    empty[7]="Lipid-Tails"
+	else
+	    echo "Problem defining: Lipid-Tails"
+	fi
+    ####################################################################
+    elif [ ${#array_lipid[@]} -eq 0 ]
+    then
+	empty[6]="Lipid"
+	empty[7]="Lipid-Tails"
+    else
+	echo "Problem defining: Lipid"
+    fi
+    
+##############################################################
+#ORGANIC
+    if [ ${#array_organic[@]} -ne 0 ]
+    then
+	aux_organic1=$( echo "${array_organic[@]}" | sed s/" "/" | r "/g )
+	aux_organic2="r ${aux_organic1}\n"
+	aux_organic3="name ${counter} Organic\n"
+	array_add_comands=( "${array_add_comands[@]}" "${aux_organic2}" "${aux_organic3}" )
+	
+	make_SOLV=( "${make_SOLV[@]}" "${counter}" ) #if this group exist, them add it to the 'SOLV' array  
+	addSOLV=( "${addSOLV[@]}" "Organic" ) 
+	
+	added=( "${added[@]}" "Organic" )
+	echo -e "\n----RESIDUES CONSIDERED AS ORGANIC----\n" >> ${log_file}
+	echo -e "${array_organic[@]}\n" >> ${log_file}
+	((counter++))
+    elif [ ${#array_organic[@]} -eq 0 ]
+    then
+	empty[8]="Organic"
+    else
+	echo "Problem defining: Organic"
+    fi
+    
+##############################################################
+#CARBOHYDRATE
+    if [ ${#array_carbohydrate[@]} -ne 0 ]
+    then
+	aux_carbohydrate1=$( echo "${array_carbohydrate[@]}" | sed s/" "/" | r "/g )
+	aux_carbohydrate2="r ${aux_carbohydrate1}\n"
+	aux_carbohydrate3="name ${counter} Carbohydrate\n"
+	array_add_comands=( "${array_add_comands[@]}" "${aux_carbohydrate2}" "${aux_carbohydrate3}" )  
+	
+	added=( "${added[@]}" "Carbohydrate" )
+	echo -e "\n----RESIDUES CONSIDERED AS CARBOHYDRATE----\n" >> ${log_file}
+	echo -e "${array_carbohydrate[@]}\n" >> ${log_file}
+	((counter++))
+    elif [ ${#array_carbohydrate[@]} -eq 0 ]
+    then
+	empty[9]="Carbohydrate"
+    else
+	echo "Problem defining: Carbohydrate"
+    fi
+    
+##############################################################
+#SOLV = SOL+Ions+Organic
+    if [ ${#make_SOLV[@]} -ne 0 ]
+    then
+	aux_solv1="$(echo "${make_SOLV[@]}" | sed s/" "/" \| "/g)\n"
+	aux_solv2="name ${counter} SOLV\n"
+	array_add_comands=( "${array_add_comands[@]}" "${aux_solv1}" "${aux_solv2}" )
+	
+	added=( "${added[@]}" "SOLV" )
+	echo -e "\n----GROUPS CONSIDERED AS SOLV----\n" >> ${log_file}
+	echo -e "${addSOLV[@]}\n" >> ${log_file}
+	((counter++))
+    elif [ ${#make_SOLV[@]} -eq 0 ]
+    then
+	empty[10]="SOLV"
+    else
+	echo "Problem defining: SOLV"
+    fi
+    
+##############################################################
+#OTHER
+    if [ ${#array_other[@]} -ne 0 ]
+    then
+	aux_other1=$( echo "${array_other[@]}" | sed s/" "/" | r "/g )
+	aux_other2="r ${aux_other1}\n"
+	aux_other3="name ${counter} Other\n"
+	array_add_comands=( "${array_add_comands[@]}" "${aux_other2}" "${aux_other3}" ) 
+	
+	added=( "${added[@]}" "Other" )
+	echo -e "\n----RESIDUES CONSIDERED AS OTHER----\n" >> ${log_file}
+	echo -e "${array_other[@]}\n" >> ${log_file}
+	((counter++))
+    elif [ ${#array_other[@]} -eq 0 ]
+    then
+	empty[11]="Other"
+    else
+	echo "Problem defining: Other"
+    fi
+
+##############################################################
+#PBMC = Protein+RNA+DNA+Lipid
+    if [ ${#make_PBMC[@]} -ne 0 ]
+    then
+	aux_pbmc1="$(echo "${make_PBMC[@]}" | sed s/" "/" \| "/g)\n"
+	aux_pbmc2="name ${counter} PBMC\n"
+	array_add_comands=( "${array_add_comands[@]}" "${aux_pbmc1}" "${aux_pbmc2}" )
+	
+	added=( "${added[@]}" "PBMC" )
+	echo -e "\n----GROUPS CONSIDERED AS PBMC----\n" >> ${log_file}
+	echo -e "${addPBMC[@]}\n" >> ${log_file}
+	((counter++))
+    elif [ ${#make_PBMC[@]} -eq 0 ]
+    then
+	empty[12]="PBMC"
+    else
+	echo "Problem defining: PBMC"
+    fi
+    
+##################################################################
+    
+    echo -e "\n----THE NON-EMPTY GROUPS ADDED ARE----\n" >> ${log_file}
+    echo -e "${added[@]}\n" >> ${log_file}
+    
+    echo -e "\n----THE EMPTY GROUPS SHOULD BE----\n" >> ${log_file}
+    echo -e "${empty[@]}\n" >> ${log_file}
+    
+##############################################################################
+#RUNNING make_ndx AGAIN BUT WITH THE COMMANDS TO MAKE A CORRECT INDEX FILE
+    
+    echo -e "${create_delete} ${array_add_comands[@]} q" | \
+	"$GroDIR"/make_ndx -f $gro_file -o $ndx_out -quiet
+    
+###############################################################################
+#--ADD EMPTY GROUPS TO NDX FILE--
+#Checks which groups already exist and adds the non-existing ones to their right positions in the file.
+    
+#    array_all=( "System" "Protein" "SOL" "DNA" "RNA" "Ion" "Lipid" "Lipid-Tails" "Organic" "Carbohydrate" "SOLV" "Other" "PBMC" ) # array with all possible groups
+    array_all=( "System" "Protein" "SOL" "DNA" "RNA" "Ion" "Lipid" "Lipid-Tails" "Organic" "Carbohydrate" "SOLV" "Other" "PBMC" )
+    echo -e "\n----ADDING EMPTY GROUPS----\n" >> ${log_file}
+    
+    count=0
+    for VARline in ${array_all[@]} # In all possible groups...
+    do
+	list=$(awk '/^\[/,/\]/{print $2,NR}' ${ndx_out}) #...Determine which ones already exist. This array is updated as new groups are added to the auxiliar index file
+	array_list=( $list )
+	NDX_size=$(awk 'END{print NR}' ${ndx_out}) #emulates bash's wc -l command, prints the total number of lines in the index file, its updated as new entries are detected 
+	let NDX_plus=${NDX_size}+1
+	let select_line=(${count}+1)
+	
+	if [ "${VARline}" == "${array_list[${count}]}" ] # if groups exists do nothing
+	then
+	    echo "Found: ${VARline}"
+	    echo -e "Found: ${VARline}" >> ${log_file}
+	    
+	elif [ "${VARline}" != "${array_list[${count}]}" ] # if group doesn't exists create it in the right place
+	then
+
+	    if [ -z "${array_list[${select_line}]}" ]
+	    then
+		line=${NDX_plus} && $(echo -e "" >> ${ndx_out})
+	    elif [ -n "${array_list[${select_line}]}" ]
+	    then
+		line=${array_list[${select_line}]}
+	    fi
+	    
+	    echo "Creating: ${VARline}"
+	    echo -e "Creating: ${VARline}" >> ${log_file}
+	    awk -v line=${line} -v text="${VARline}" 'NR==line{print "[ "text" ]"}1' ${ndx_out} > ${aux_file} #use awk to add the new entry, writting the output to an auxiliar file
+	    mv ${aux_file} ${ndx_out} #rename the auxiliar file with the final output name
+
+	else
+	    echo "Somethings wrong, check: ADD EMPTY GROUPS"
+	fi
+	let count=(${count}+2)
+	unset array_list
+    done
+
+#Run make_ndx to check if everything went by ok
+    echo -e "\n----FINAL GROUPS: created by make_ndx-CpH----\n\n" >> ${log_file}
+    echo -e "q" | $GroDIR/make_ndx -f ${gro_file} -o ${ndx_TMP} -n ${ndx_out} -quiet | awk '/([a-zA-Z]?|[0-9]?) +:/{print $0}' | head --line=-1 >> ${log_file}
+    rm ${ndx_TMP}
+
+    if [ "${VARuserf}" == "TRUE" ]
+    then
+	rm ${user_file}
+    fi
+else
+    echo "incorrect command usage, check input parameters"
+    exit $E_WRONGARGS
+fi
+
+exit 0

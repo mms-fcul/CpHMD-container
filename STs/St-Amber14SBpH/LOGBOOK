@@ -1,0 +1,102 @@
+
+Calibration Procedure For CHARMM36 force field:
+
+The following residues were corrected according to ALA-pentapeptides
+experimental data: GLU, CYS, HIS, LYS, TYR, N-ter and C-ter
+
+Thurlkill_2006_PS_15_1214.pdf
+
+The ASP residue was later on corrected in another publication:
+
+Grimsley_2009_PS_18_247.pdf
+
+Thurlkill_2006_PS_15_1214.pdf
+Asp	  3.94*
+Glu	  4.25
+His	  6.54
+Cys	  8.55
+Lys	 10.40
+Tyr	  9.84
+NTR	  8.00
+CTR	  3.67
+*Grimsley_2009_PS_18_247.pdf
+
+The older values are from Nozaki and Tanford (1967):
+Arginine     12.0
+Aspartate     4.0
+Glutamate     4.4
+Histidine     6.3
+Lysine       10.4
+Tyrosine      9.6
+N-terminus    7.5
+C-terminus    3.8
+_____________________________________________________________________________
+
+The rule to obtain the correct tautomeric pKmod is as follows:
+
+Carboxylic: 2+2 tautomers - the backwards protons have an occupancy of 5.5%
+
+pKmodTAUT(front) = pKmod - log10(2/(1-0.055))
+pKmodTAUT(back) = pKmod - log10(2/(0.055))
+
+log10(2/(1-0.055)) = 0.3256
+log10(2/(0.055))   = 1.5607
+
+--------------------------
+TYR: two tautomeric forms (anionic)
+
+pKmodTAUT = pKmod - log10(2)
+
+log10(2) = 0.3010
+
+--------------------------
+LYS & N-ter: three tautomeric forms (cationic)
+
+pKmodTAUT = pKmod + log10(3)
+
+log10(3) = 0.4771
+
+--------------------------
+N-ter-PRO: two tautomeric forms (cationic)
+
+pKmodTAUT = pKmod + log10(2)
+log10(2) = 0.3010
+
+--------------------------
+HIS: two real tautomeric forms (cationic) - a partition of 30%/70% can be used.
+
+pKmodTAUT(Ndelta) = pKmod + log10(1/(0.3))
+pKmodTAUT(Nepsilon) = pKmod + log10(1/(1-0.3))
+
+log10(1/(0.3))   = 0.5229
+log10(1/(1-0.3)) = 0.1549
+
+--------------------------
+CYS: three tautomeric forms (anionic) 
+
+pKmodTAUT = pKmod - log10(3)
+
+log10(3) = 0.4771
+
+--------------------------
+ARG: not titrating
+log10(4) = 0.6021
+
+## Results for AMBER14SB ##
+
+Calibration made with DelPhi with a convergence criteria of
+maxc = 0.01. Data fitted to a Henderson-Hasselbalch
+
+Res.       pK(Exp)   Err(Exp) Shift-from-zero*
+ASP          3.94     0.04        -0.090         
+CYS          8.55     0.03        -0.080      	    
+GLU          4.25     0.05        -0.049      	    
+HIS          6.54     0.04        -0.015      	    
+LYS         10.40     0.08         0.045      	    
+TYR          9.84     0.11        -0.015      	    
+N-ter        8.00     0.03         0.020      	    
+C-ter        3.67     0.03         0.063      	    
+
+*Observed shifts of the sites considering an initial pKmod of 0.0
+
+############################################################

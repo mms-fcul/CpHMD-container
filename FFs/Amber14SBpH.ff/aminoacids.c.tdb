@@ -1,0 +1,262 @@
+[ None ]
+
+[ CpH0tau1 ]
+[ replace ]
+N      N       N        14.011  -0.387
+H      H       H         1.008   0.273
+CA     CA      CX       12.011  -0.088
+HA     HA      H1        1.008   0.274
+C      C       C        12.011   0.646
+O      OC1     OH           16  -0.638
+[ add ]
+ 1      2       OC1     C       CA     N
+        OH      16     -0.638    -1
+ 1      2       OC2     C       CA      OC1
+        O       16     -0.555    -1
+ 1      2       HC11    OC1     C        CA
+        HO      1.008   0.475
+ 1      3       HC12    OC1     C        CA
+        HOB     1.008   0.000
+ 1      2       HC21    OC2     C       OC1
+        HO      1.008   0.000
+ 1      3       HC22    OC2     C       OC1
+        HOB     1.008   0.000
+[ bonds ]
+ C      OC2
+ OC1    HC11
+ OC1    HC12
+ OC2    HC21
+ OC2    HC22
+[ impropers ]
+ C      CA      OC2     OC1
+
+[ CpH0tau2 ]
+[ replace ]
+N      N       N       14.011  -0.387
+H      H       H        1.008   0.273
+CA     CA      CX      12.011  -0.088
+HA     HA      H1       1.008   0.274
+C      C       C       12.011   0.646
+O      OC1     OH          16  -0.555
+[ add ]
+ 1      2       OC1     C       CA     N
+        O       16     -0.555    -1
+ 1      2       OC2     C       CA      OC1
+        OH      16     -0.638    -1
+ 1      2       HC11    OC1     C        CA
+        HO      1.008   0.000
+ 1      3       HC12    OC1     C        CA
+        HOB     1.008   0.000
+ 1      2       HC21    OC2     C       OC1
+        HO      1.008   0.475
+ 1      3       HC22    OC2     C       OC1
+        HOB     1.008   0.000
+[ bonds ]
+ C      OC2
+ OC1    HC11
+ OC1    HC12
+ OC2    HC21
+ OC2    HC22
+[ impropers ]
+ C      CA      OC2     OC1
+
+[ CpH0tau3 ]
+[ replace ]
+N      N       N       14.011  -0.387
+H      H       H        1.008   0.273
+CA     CA      CX      12.011  -0.088
+HA     HA      H1       1.008   0.274
+C      C       C       12.011   0.646
+O      OC1     OH          16  -0.638
+[ add ]
+ 1      2       OC1     C       CA     N
+        OH      16     -0.638    -1
+ 1      2       OC2     C       CA      OC1
+        O       16     -0.555    -1
+ 1      2       HC11    OC1     C        CA
+        HO      1.008   0.000
+ 1      3       HC12    OC1     C        CA
+        HOB     1.008   0.475
+ 1      2       HC21    OC2     C       OC1
+        HO      1.008   0.000
+ 1      3       HC22    OC2     C       OC1
+        HOB     1.008   0.000
+[ bonds ]
+ C      OC2
+ OC1    HC11
+ OC1    HC12
+ OC2    HC21
+ OC2    HC22
+[ impropers ]
+ C      CA      OC2     OC1
+
+[ CpH0tau4 ]
+[ replace ]
+N      N       N       14.011  -0.387
+H      H       H        1.008   0.273
+CA     CA      CX      12.011  -0.088
+HA     HA      H1       1.008   0.274
+C      C       C       12.011   0.646
+O      OC1     OH          16  -0.555
+[ add ]
+ 1      2       OC1     C       CA     N
+        O       16     -0.555    -1
+ 1      2       OC2     C       CA      OC1
+        OH      16     -0.638    -1
+ 1      2       HC11    OC1     C        CA
+        HO      1.008   0.000
+ 1      3       HC12    OC1     C        CA
+        HOB     1.008   0.000
+ 1      2       HC21    OC2     C       OC1
+        HO      1.008   0.000
+ 1      3       HC22    OC2     C       OC1
+        HOB     1.008   0.475
+[ bonds ]
+ C      OC2
+ OC1    HC11
+ OC1    HC12
+ OC2    HC21
+ OC2    HC22
+[ impropers ]
+ C      CA      OC2     OC1
+
+[ CpH0- ]
+[ replace ]
+N      N       N       14.011  -0.387
+H      H       H        1.008   0.273
+CA     CA      CX      12.011  -0.209
+HA     HA      H1       1.008   0.152
+C      C       CO      12.011   0.783
+O      OC1     O2          16  -0.806
+[ add ]
+ 1      2       OC1     C       CA     N
+        O2      16     -0.806    -1
+ 1      2       OC2     C       CA      OC1
+        O2      16     -0.806    -1
+ 1      2       HC11    OC1     C        CA
+        HO      1.008   0.000
+ 1      3       HC12    OC1     C        CA
+        HOB     1.008   0.000
+ 1      2       HC21    OC2     C       OC1
+        HO      1.008   0.000
+ 1      3       HC22    OC2     C       OC1
+        HOB     1.008   0.000
+[ bonds ]
+ C      OC2
+ OC1    HC11
+ OC1    HC12
+ OC2    HC21
+ OC2    HC22
+[ impropers ]
+ C      CA      OC2     OC1
+ 
+[ GLY-COOH0 ]
+[ replace ]
+N       N       14.011  -0.382
+H       H        1.008   0.268
+CA      CX      12.011  -0.174
+HA1     H1       1.008   0.180
+HA2     H1       1.008   0.180
+C       CO      12.011   0.646
+OC1     O2          16  -0.638
+HC11    HO       1.008   0.475
+OC2     O2          16  -0.555
+
+[ GLY-COOH1 ]
+[ replace ]
+N       N       14.011  -0.382
+H       H        1.008   0.268
+CA      CX      12.011  -0.174
+HA1     H1       1.008   0.180
+HA2     H1       1.008   0.180
+C       CO      12.011   0.646
+OC2     O2          16  -0.638
+HC21    HO       1.008   0.475
+OC1     O2          16  -0.555
+
+[ GLY-COOH2 ]
+[ replace ]
+N       N       14.011  -0.382
+H       H        1.008   0.268
+CA      CX      12.011  -0.174
+HA1     H1       1.008   0.180
+HA2     H1       1.008   0.180
+C       CO      12.011   0.646
+OC1     O2          16  -0.638
+HC12    HOB      1.008   0.475
+OC2     O2          16  -0.555
+
+[ GLY-COOH3 ]
+[ replace ]
+N       N       14.011  -0.382
+H       H        1.008   0.268
+CA      CX      12.011  -0.174
+HA1     H1       1.008   0.180
+HA2     H1       1.008   0.180
+C       CO      12.011   0.646
+OC2     O2          16  -0.638
+HC22    HOB      1.008   0.475
+OC1     O2          16  -0.555
+
+[ GLY-COO- ]
+[ replace ]
+N       N       14.011  -0.382
+H       H        1.008   0.268
+
+[ PRO-COOH0 ]
+[ replace ]
+N       N       14.011  -0.387
+CD      CT      12.011   0.104
+HD1     H1       1.008   0.109
+HD2     H1       1.008   0.109
+CA      CX      12.011  -0.007
+HA      H1       1.008   0.144 
+C       CO      12.011   0.646
+OC1     O2          16  -0.638  
+HC11    HO       1.008   0.475
+OC2     O2          16  -0.555
+
+[ PRO-COOH1 ]
+[ replace ]
+N       N       14.011  -0.387
+CD      CT      12.011   0.104
+HD1     H1       1.008   0.109
+HD2     H1       1.008   0.109
+CA      CX      12.011  -0.007
+HA      H1       1.008   0.144 
+C       CO      12.011   0.646
+OC2     O2          16  -0.638  
+HC21    HO       1.008   0.475
+OC1     O2          16  -0.555
+
+[ PRO-COOH2 ]
+[ replace ]
+N       N       14.011  -0.387
+CD      CT      12.011   0.104
+HD1     H1       1.008   0.109
+HD2     H1       1.008   0.109
+CA      CX      12.011  -0.007
+HA      H1       1.008   0.144 
+C       CO      12.011   0.646
+OC1     O2          16  -0.638  
+HC12    HOB      1.008   0.475
+OC2     O2          16  -0.555
+
+[ PRO-COOH3 ]
+[ replace ]
+N       N       14.011  -0.387
+CD      CT      12.011   0.104
+HD1     H1       1.008   0.109
+HD2     H1       1.008   0.109
+CA      CX      12.011  -0.007
+HA      H1       1.008   0.144 
+C       CO      12.011   0.646
+OC2     O2          16  -0.638  
+HC22    HOB      1.008   0.475
+OC1     O2          16  -0.555
+
+[ PRO-COO- ]
+[ replace ]
+N       N       14.011  -0.280
+H       H        1.008   0.064
+

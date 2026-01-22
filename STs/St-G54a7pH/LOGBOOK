@@ -1,0 +1,123 @@
+The following residues were corrected according to ALA-pentapeptides
+experimental data: GLU, CYS, HIS, LYS, TYR, N-ter and C-ter
+
+Thurlkill_2006_PS_15_1214.pdf
+
+The ASP residue was later on corrected in another publication:
+
+Grimsley_2009_PS_18_247.pdf
+
+The following residues were kept the same:
+
+ARG, HEM, PA, PD.
+
+****** Important Note ******
+
+For the gromos 54A7 force field, we introduced a correction in the 
+O2-C-O1-H11 and O1-C-O2-H21 dihedrals in order to get a multiplicity of 
+"1". This way, we do not allow transitions between front and back proton
+positions during the MD simulations.
+
+The calibrations done for G43A1 and G53A6 were still made using the 
+previous code without this correction.
+
+****** Important Note ******
+
+
+_____________________________________________________________________________
+
+The rule to obtain the correct tautomeric pKmod is as follows:
+
+Carboxylic: 2+2 tautomers - the backwards protons have an occupancy of 5.5%
+
+pKmodTAUT(front) = pKmod - log10(2/(1-0.055))
+pKmodTAUT(back) = pKmod - log10(2/(0.055))
+
+
+CYS: three tautomeric forms (anionic)
+
+pKmodTAUT = pKmod - log10(3)
+
+
+TYR: three tautomeric forms (anionic)
+
+pKmodTAUT = pKmod - log10(2)
+
+
+LYS & N-ter: three tautomeric forms (cationic)
+
+pKmodTAUT = pKmod + log10(3)
+
+
+HIS: two real tautomeric forms (cationic) - a partition of 30%/70% can be used.
+
+pKmodTAUT(Ndelta) = pKmod + log10(1/(0.3))
+pKmodTAUT(Nepsilon) = pKmod + log10(1/(1-0.3))
+
+
+ARG: four tautomeric forms (cationic)
+
+pKmodTAUT = pKmod + log10(4)
+
+
+N-ter-PRO: two tautomeric forms (cationic)
+
+pKmodTAUT = pKmod + log10(2)
+
+Tetrazole: 2+2 real tautomeric forms (anionic) - a partition of 30%/70% can be used in analogy to an imidazole.
+
+pKmodTAUT(N1) = pKmod - log10(2/(1-0.3))
+pKmodTAUT(N2) = pKmod - log10(2/(0.3))
+
+
+
+## Results for 43A1 ##
+
+Res.       pK(Exp)   Err(Exp)  pKa      Err     Shift    pKmod   pKmod(Corr)
+ASP          3.94     0.04     4.37     0.02    -0.43     4.00     3.57
+CYS          8.55     0.03    10.05     0.04    -1.50     9.50     8.00
+GLU          4.25     0.05     4.61     0.01    -0.36     4.40     4.04
+HIS          6.54     0.04     5.96     0.01     0.58     6.45     7.03
+LYS         10.40     0.08    10.19     0.01     0.21    10.40    10.61
+TYR          9.84     0.11     9.93     0.01    -0.09     9.60     9.51
+N-ter        8.00     0.03     6.92     0.02     1.08     7.50     8.58
+C-ter        3.67     0.03     4.34     0.02    -0.67     3.80     3.13
+
+#######################
+
+## Results for 53A6 ##
+
+Res.       pK(Exp)   Err(Exp)  pKa      Err     Shift    pKmod   pKmod(Corr)
+ASP          3.94     0.04     4.34     0.02    -0.40     4.00     3.60
+CYS          8.55     0.03     9.47     0.06    -0.92     9.50     8.58
+GLU          4.25     0.05     4.53     0.01    -0.28     4.40     4.12
+HIS          6.54     0.04     6.21     0.01     0.33     6.45     6.78
+LYS         10.40     0.08    10.30     0.01     0.10    10.40    10.50
+TYR          9.84     0.11     9.92     0.01    -0.08     9.60     9.52
+N-ter        8.00     0.03     7.52     0.02     0.48     7.50     7.98
+C-ter        3.67     0.03     4.49     0.01    -0.82     3.80     2.98
+
+#######################
+
+
+## Results for 54A7 ##
+
+Res.       pK(Exp)   Err(Exp)  pKa      Err     Shift    pKmod   pKmod(Corr)
+ASP          3.94     0.04     4.21     0.02    -0.27     4.00     3.73 
+CYS          8.55     0.03     9.47     0.05    -0.92     9.50     8.58
+GLU          4.25     0.05     4.46     0.01    -0.21     4.40     4.19 
+HIS          6.54     0.04     6.11     0.02     0.43     6.45     6.88
+LYS         10.40     0.08    10.32     0.00     0.08    10.40    10.48
+TYR          9.84     0.11     9.85     0.01    -0.01     9.60     9.59
+N-ter*       8.00     0.03     7.54     0.02     0.46     7.50     7.96 
+C-ter**      3.67     0.03     4.28     0.05    -0.61     3.80     3.19 
+
+* The N-terminus was defined with the atoms: N, H[1,2,3], CA, C and O
+** This has problems with tautomers changing positions.
+
+Solving the Tautomer problem:
+
+C-ter        3.67     0.03     4.46     0.05    -0.79     3.80     3.01
+
+#######################
+
