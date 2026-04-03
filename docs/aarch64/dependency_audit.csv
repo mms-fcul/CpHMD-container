@@ -1,0 +1,17 @@
+Component,Path_or_Source,Present_in_Git,Present_in_SIF,Type,Arch_Sensitive,Current_Status,Action_Needed,Notes
+CpHMD scripts,/CpHMD/scripts and ./CpHMD_v3.3.2-container/scripts,yes,yes,scripts,no,portable,keep,Main workflow scripts
+CpHMD default settings,/CpHMD/CpHMD-default.settings and container_build/compile-files/CpHMD_v3.3.2-container/CpHMD-default.settings,yes,yes,config,no,portable,keep,
+Force fields,/FFs and ./FFs,yes,yes,data,no,portable,keep,Includes Amber14SBpH.ff CHARMM36pH.ff G54a7pH.ff
+Tautomer/state files,/STs and ./STs,yes,yes,data,no,portable,keep,
+Databases,/Databases and ./Databases,yes,yes,data,no,portable,keep,crg and siz files
+Tutorial files,/Tutorials,probably no in top repo tree,yes,data,no,portable,verify,Check whether tutorials are committed in repo or only copied at build
+Analysis scripts,/analysis and ./analysis,yes,yes,shell scripts,no,portable,keep,
+Delphi tools payload,/Delphi and ./container_build/compile-files/DelphiTools_v3.3.1-container,yes,yes,binaries+scripts,yes,unknown,audit,Need to identify which files are executables vs awk/text
+GROMACS CPU,/gromacs, no as source build recipe,no as source yes as copied tree in SIF,binary,yes,x86_64-only,rebuild,Embedded binary is x86_64
+GROMACS GPU,/gromacs-gpu, no as source build recipe,no as source yes as copied tree in SIF,binary,yes,x86_64-only,defer or rebuild later,Probably not needed for ARM CPU partition initially
+Petit,/programs/petit1.6.1,no,yes,binary,yes,unknown,rebuild or replace,Source/build recipe missing from repo
+OpenMPI,/lib64/openmpi/bin and apt packages,no explicit recipe beyond apt,yes,package/runtime,yes,likely rebuild via apt/install,Need ARM-compatible package install in new def
+Python3,/usr/bin/python3,base image package,unclear in SIF path lookup,package,maybe,likely available,reinstall,Need explicit version/package choice
+CUDA libs,/usr/lib/x86_64-linux-gnu/libcufft.so* and LD_LIBRARY_PATH entry,no,yes,binary libs,yes,x86_64-only,remove for ARM-first build,Not needed for normal-arm target
+libgomp,/usr/lib/x86_64-linux-gnu/libgomp.so.1,no,yes,system lib,yes,x86_64-only,reinstall from ARM packages,Do not copy x86 library
+Container definition,embedded in SIF via singularity inspect --deffile,no,yes,build recipe,n/a,non-portable,rewrite,Current recipe depends on absolute host paths
