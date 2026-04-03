@@ -1,4 +1,6 @@
-container_build/
+container_build/*
+!container_build/defs/
+!container_build/defs/*.def
 template/scripts
 CpHMD.sif
 CpHMD-gpu.sif
