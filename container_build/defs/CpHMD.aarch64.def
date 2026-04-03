@@ -3,199 +3,194 @@ From: ubuntu:24.04
 Stage: Base-build
 
 %post
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -y
-  apt-get upgrade -y
-  apt-get install -y curl cmake fftw-dev python3.8-dev gcc build-essential openmpi-common openmpi-bin libopenmpi-dev bc gawk && \
-  apt-get clean -y && \
-  rm -rf /var/lib/apt/lists/*
+    export DEBIAN_FRONTEND=noninteractive
 
-  ln -s /CpHMD/scripts/CpHMD.sh /bin/CpHMD.sh
-  ln -s /gromacs-gpu/bin/gmx /bin/gmx-gpu
-  
-  unset DEBIAN_FRONTEND
+    apt-get update -y
+    apt-get upgrade -y
+    apt-get install -y \
+        bash \
+        bc \
+        build-essential \
+        ca-certificates \
+        cmake \
+        curl \
+        gawk \
+        gcc \
+        gfortran \
+        libfftw3-dev \
+        libopenmpi-dev \
+        openmpi-bin \
+        openmpi-common \
+        python3 \
+        python3-dev \
+        file \
+        make \
+        perl \
+        && apt-get clean -y \
+        && rm -rf /var/lib/apt/lists/*
+
+    ln -sf /CpHMD/scripts/CpHMD.sh /usr/local/bin/CpHMD.sh
+
+    unset DEBIAN_FRONTEND
 
 %environment
-  export PATH=$PATH:/gromacs/bin/
-  export PATH=$PATH:/lib64/openmpi/bin/
-  export PATH=$PATH:/CpHMD/scripts/
-  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH 
-  export PATH=/usr/local/bin:$PATH  # Ensure custom installs are on PATH
+    export PATH="/CpHMD/scripts:/usr/local/bin:/usr/bin:/bin:${PATH}"
 
 %files
-  ### Pass base CpHMD programs and files inside the container ###
-  
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/CpHMD_v3.3.2-container/ /CpHMD
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/DelphiTools_v3.3.1-container/ /Delphi
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/FFs/ /FFs
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/STs /STs
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/Databases /Databases
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/tutorials /Tutorials
-  /programs/petit1.6.1 /programs/petit1.6.1
+    # Portable CpHMD payload from the repository
+    container_build/compile-files/CpHMD_v3.3.2-container/ /CpHMD
+    container_build/compile-files/DelphiTools_v3.3.1-container/ /Delphi
+    container_build/compile-files/FFs/ /FFs
+    container_build/compile-files/STs /STs
+    container_build/compile-files/Databases /Databases
+    container_build/compile-files/analysis/ /analysis
+    template/ /Tutorials
 
-  ### Pass analysis scripts to be called in the app module ###
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/analysis/ /analysis
-
-  ### Pass GROMACS binaries and library dependencies inside the container ###
-  
-  /gromacs/gromacs-2024.3/ /gromacs
-  /gromacs/gromacs-2024.3-GPU/ /gromacs-gpu
-  /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58 /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58
-  /usr/lib/x86_64-linux-gnu/libcufft.so.10 /usr/lib/x86_64-linux-gnu/libcufft.so.10
-  /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95 /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95
-  /usr/lib/x86_64-linux-gnu/libcufft.so.11 /usr/lib/x86_64-linux-gnu/libcufft.so.11
-  /usr/lib/x86_64-linux-gnu/libgomp.so.1 /usr/lib/x86_64-linux-gnu/libgomp.so.1
-
-
-
-  #############################
-  ## create protonation app
-  #############################
+#############################
+## create protonation app
+#############################
 %apprun protonation
-     ### Commands to run protonation extraction
-     /analysis/extract_protonation.sh $1 $2
+    /analysis/extract_protonation.sh "$1" "$2"
 
-     
 %apphelp protonation
-     Protonation is a command from the CpHMD container that treats the
-     simulation .occ file. This file contains inside the information of the tautomer used for each
-     simulation segment (commonly 20 ps) and can be interpreted as:
-     - Lines - Each line is a step of PB/MC cycle which normally is 20 ps.
-     - collumns - Tautomer choosed for that specific time in each corresponding residue of the .sites
-     file.
-     The first column is the first titratable residue in the .sites, and so on.
-     This container app is able to convert the basic tautomers of CpHMD into protonation, allowing
-     for the interpretation of protonation states on the simulation.
-     USAGE: singularity run --app protonation CpHMD.sif <.occ file> <.sites file>
+    Protonation is a command from the CpHMD container that treats the
+    simulation .occ file. This file contains the tautomer used for each
+    simulation segment and allows interpretation of protonation states.
+    USAGE: singularity run --app protonation CpHMD.sif <.occ file> <.sites file>
 
-  ######################################
-  ## Extract protonation treatment file
-  ######################################
+######################################
+## Extract protonation treatment file
+######################################
 %apprun extract-protonation-script
-     cp -rf /analysis/extract_protonation.sh ./
+    cp -rf /analysis/extract_protonation.sh ./
 
 %apphelp extract-protonation-script
-     This app copies the script that treats the protonation from the container
-     into the home directory to allow for user manipulation of the script.
+    This app copies the script that treats protonation from the container
+    into the current directory.
 
-  ######################################
-  ## Extract FF files
-  ######################################
-
+######################################
+## Extract FF files
+######################################
 %apprun extract-force-fields
-     case $1 in
-     GROMOS|Gromos|gromos)\
-          cp -rf  /FFs/G54a7pH.ff/ ./G54a7pH.ff/ ;;
-     CHARMM|Charmm|charmm)\
-          cp -rf /FFs/CHARMM36pH.ff/ ./CHARMM36pH.ff/ ;;
-     AMBER|Amber|amber)\
-          cp -rf /FFs/Amber14SBpH.ff/ ./Amber14SBpH.ff/ ;;
-     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
-     esac
+    case "$1" in
+        GROMOS|Gromos|gromos)
+            cp -rf /FFs/G54a7pH.ff ./G54a7pH.ff
+            ;;
+        CHARMM|Charmm|charmm)
+            cp -rf /FFs/CHARMM36pH.ff ./CHARMM36pH.ff
+            ;;
+        AMBER|Amber|amber)
+            cp -rf /FFs/Amber14SBpH.ff ./Amber14SBpH.ff
+            ;;
+        ""|*)
+            echo "Missing or invalid force field. Use one of: GROMOS, CHARMM, AMBER."
+            ;;
+    esac
 
 %appenv extract-force-fields
     SOFTWARE=extract-force-fields
     export SOFTWARE
 
-
 %apphelp extract-force-fields
-     This app copies the specified force fields within the container to the home directory.
+    This app copies the specified force field from the container to the current directory.
 
-
-  ######################################
-  ## Extract protonation treatment file
-  ######################################
-
+######################################
+## Extract tautomer/state files
+######################################
 %apprun extract-tautomers
-     case $1 in
-     GROMOS|Gromos|gromos)\
-          cp -rf /STs/St-G54a7pH.ff/ ./STs-G54a7pH.ff/ ;;
-     CHARMM|Charmm|charmm)\
-          cp -rf /STs/St-CHARMM36pH.ff/ ./STs-CHARMM36pH.ff/ ;;
-     AMBER|Amber|amber)\
-          cp -rf /STs/St-Amber14SBpH.ff/ ./STs-Amber14SBpH.ff/ ;;
-     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
-     esac
+    case "$1" in
+        GROMOS|Gromos|gromos)
+            cp -rf /STs/St-G54a7pH ./STs-G54a7pH
+            ;;
+        CHARMM|Charmm|charmm)
+            cp -rf /STs/St-CHARMM36pH ./STs-CHARMM36pH
+            ;;
+        AMBER|Amber|amber)
+            cp -rf /STs/St-Amber14SBpH ./STs-Amber14SBpH
+            ;;
+        ""|*)
+            echo "Missing or invalid force field. Use one of: GROMOS, CHARMM, AMBER."
+            ;;
+    esac
 
 %applabels extract-tautomers
-     get-files tautomer
+    get-files tautomer
 
 %appenv extract-tautomers
     SOFTWARE=extract-tautomers
     export SOFTWARE
 
 %apphelp extract-tautomers
-     This app copies the tautomer files within the container to the home directory. Should be used with 1 argument which is the forcefield selected. (G54a7pH.ff,CHARMM36pH,Amber14SBpH.ff)
+    This app copies the tautomer/state files from the container to the current directory.
 
-
-  ########################################################
-  ## Extract delphi databases for molecule adition  ##
-  ########################################################
-
+########################################################
+## Extract Delphi databases
+########################################################
 %apprun extract-databases
-     mkdir -p ./Databases	
-     case $1 in
-     GROMOS|Gromos|gromos|G54a7pH)\
-          cp -rf /Databases/DataBaseT_G54a7pH.* ./Databases/ ;;
-     CHARMM|Charmm|charmm|CHARMM36pH)\
-          cp -rf /Databases/DataBaseT_CHARMM36pH.ff/ ./Databases/ ;;
-     AMBER|Amber|amber|Amber14SBpH)\
-          cp -rf /Databases/DataBaseT_Amber14SBpH.ff/ ./Databases/ ;;
-     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
-     esac
+    mkdir -p ./Databases
+    case "$1" in
+        GROMOS|Gromos|gromos|G54a7pH)
+            cp -rf /Databases/DataBaseT_G54a7pH.* ./Databases/
+            ;;
+        CHARMM|Charmm|charmm|CHARMM36pH)
+            cp -rf /Databases/DataBaseT_CHARMM36pH.* ./Databases/
+            ;;
+        AMBER|Amber|amber|Amber14SBpH)
+            cp -rf /Databases/DataBaseT_Amber14SBpH.* ./Databases/
+            ;;
+        ""|*)
+            echo "Missing or invalid force field. Use one of: GROMOS, CHARMM, AMBER."
+            ;;
+    esac
 
 %apphelp extract-databases
-     This app makes a .sites file with the inputed files, showing which residues are identified to titrate.
+    This app copies the selected Delphi database files into ./Databases.
 
-  ########################################################
-  ## Extract tutorial files   ##
-  ########################################################
-
+########################################################
+## Extract tutorial/settings files
+########################################################
 %apprun get-tutorials
-      cp -rf /Tutorials ./tutorials/
+    cp -rf /Tutorials ./tutorials
 
 %apphelp get-tutorials
-     This app copies  the current tutorial files to follow from the git-hub wiki. 
+    This app copies the available tutorial/settings files to ./tutorials.
 
-  ########################################################
-  ## Extract settings files   ##
-  ########################################################
-
+########################################################
+## Extract settings files
+########################################################
 %apprun get-settings
-      cp -rf /Tutorials/CpHMD-$1.settings ./
+    cp -f /Tutorials/CpHMD-"$1".settings ./
 
-%apphelp get-tutorials
-     This app copies  a .settings file to the folder.
+%apphelp get-settings
+    This app copies a CpHMD settings file to the current directory.
+    Example: singularity run --app get-settings CpHMD.sif basic
 
-  ######################################
-  ## Prepare the pdb for minimization 
-  ######################################
-
+######################################
+## Prepare the pdb for minimization
+######################################
 %apprun pdb2cphmd
-      /analysis/prepare-pdb.sh $@ 
+    /analysis/prepare-pdb.sh "$@"
 
-%apphelp extract-tautomers
-     This app copies the tautomer files within the container to the home directory
+%apphelp pdb2cphmd
+    This app prepares a PDB for CpHMD processing.
 
-  ########################################################
-  ## Make_sites test script to check titrating residues ##
-  ########################################################
-
+########################################################
+## Make_sites test script to check titrating residues
+########################################################
 %apprun make-sites
-      /CpHMD/scripts/make_sites $@  
+    /CpHMD/scripts/make_sites "$@"
 
 %apphelp make-sites
-     This app makes a .sites file with the inputed files, showing which residues are identified to titrate.
+    This app makes a .sites file showing which residues are identified to titrate.
 
-  ######################################
-  ## Prepare the pdb for minimization 
-  ######################################
-
+######################################
+## Add molecule database helper
+######################################
 %apprun add-mol-db
-      /analysis/add-mol-database.sh $@
-      echo "Please do not forget to extract the entire databases from the container and adding your new molecules to them."
-      echo
-      echo "Your CpHMD.settings should have the export Databases=<your updated database> location to use your custom DB."
-      
+    /analysis/add-mol-database.sh "$@"
+    echo "Please do not forget to extract the full databases from the container and add your new molecules to them."
+    echo
+    echo "Your CpHMD.settings should define the Databases path for your updated custom database."
+
 %apphelp add-mol-db
-     This app copies the tautomer files within the container to the home directory
+    This app helps prepare additions to the molecule database.
