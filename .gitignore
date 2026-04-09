@@ -5,6 +5,9 @@ container_build/*
 container_build/compile-files/*
 !container_build/compile-files/petit1.6.1/
 !container_build/compile-files/petit1.6.1/*
+!container_build/sources/
+container_build/sources/*
+!container_build/sources/.gitkeep
 template/scripts
 CpHMD.sif
 CpHMD-gpu.sif
