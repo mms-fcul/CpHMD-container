@@ -14,9 +14,11 @@ Stage: Base-build
         ca-certificates \
         cmake \
         curl \
+        file \
         gawk \
         gcc \
         gfortran \
+        git \
         libfftw3-dev \
         libopenmpi-dev \
         make \
@@ -25,7 +27,8 @@ Stage: Base-build
         perl \
         python3 \
         python3-dev \
-        file \
+        tar \
+        wget \
         && apt-get clean -y \
         && rm -rf /var/lib/apt/lists/*
 
@@ -33,24 +36,43 @@ Stage: Base-build
 
     # Build Petit natively for aarch64
     test -f /programs/petit1.6.1/petit.c
-    
-    # Remove any carried-over x86 binaries from the recovered payload
     rm -f /programs/petit1.6.1/petit /programs/petit1.6.1/petit-gcc
-    
-    # Try a normal build first; fall back to linking libm explicitly if needed
     gcc -O2 /programs/petit1.6.1/petit.c -o /programs/petit1.6.1/petit || \
     gcc -O2 /programs/petit1.6.1/petit.c -lm -o /programs/petit1.6.1/petit
-    
     cp -f /programs/petit1.6.1/petit /programs/petit1.6.1/petit-gcc
     chmod 755 /programs/petit1.6.1/petit /programs/petit1.6.1/petit-gcc
+
+    # Build GROMACS 2024.3 natively for aarch64 (CPU-only)
+    test -f /tmp/gromacs-src/gromacs-2024.3.tar.gz
+    mkdir -p /tmp/build-gromacs
+    tar -xzf /tmp/gromacs-src/gromacs-2024.3.tar.gz -C /tmp/build-gromacs
+    mkdir -p /tmp/build-gromacs/gromacs-2024.3/build
+    cd /tmp/build-gromacs/gromacs-2024.3/build
+
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/gromacs \
+        -DGMX_BUILD_OWN_FFTW=OFF \
+        -DGMX_FFT_LIBRARY=fftw3 \
+        -DGMX_MPI=OFF \
+        -DGMX_OPENMP=ON \
+        -DGMX_GPU=OFF \
+        -DGMX_SIMD=None \
+        -DGMXAPI=OFF \
+        -DBUILD_SHARED_LIBS=ON \
+        -DCMAKE_BUILD_TYPE=Release
+
+    make -j"$(nproc)"
+    make install
+
+    cd /
+    rm -rf /tmp/build-gromacs /tmp/gromacs-src
 
     unset DEBIAN_FRONTEND
 
 %environment
-    export PATH="/CpHMD/scripts:/usr/local/bin:/usr/bin:/bin:${PATH}"
+    export PATH="/gromacs/bin:/CpHMD/scripts:/usr/local/bin:/usr/bin:/bin:${PATH}"
 
 %files
-    # Portable CpHMD payload from the repository
     container_build/compile-files/CpHMD_v3.3.2-container/ /CpHMD
     container_build/compile-files/DelphiTools_v3.3.1-container/ /Delphi
     container_build/compile-files/FFs/ /FFs
@@ -58,9 +80,8 @@ Stage: Base-build
     container_build/compile-files/Databases /Databases
     container_build/compile-files/analysis/ /analysis
     template/ /Tutorials
-
-    # Petit source recovered from the released container
     container_build/compile-files/petit1.6.1/ /programs/petit1.6.1
+    container_build/sources/gromacs-2024.3.tar.gz /tmp/gromacs-src/gromacs-2024.3.tar.gz
 
 #############################
 ## create protonation app
