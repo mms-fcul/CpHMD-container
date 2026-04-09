@@ -8,15 +8,15 @@ Template settings,template,yes,partly,data,no,portable,keep,Used as /Tutorials i
 Delphi wrapper script,container_build/compile-files/DelphiTools_v3.3.1-container/delphiT,yes,yes,shell script,no,portable,keep,Calls Delphi helper programs
 Delphi awk/text utilities,container_build/compile-files/DelphiTools_v3.3.1-container/{makepqr,averaging_g.awk,pdbswitch,getst,statepqr,convert,gen_files.awk,gromodels,gen_charge.awk,stmodels,slice.awk},yes,yes,scripts,no,portable,keep,Architecture-independent text/awk utilities
 Delphi parameter/data files,container_build/compile-files/DelphiTools_v3.3.1-container/{CRG_FILE,DELPHI_Memb.pbp,DELPHI_Prot.pbp,README.txt},yes,yes,data,no,portable,keep,
-Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/calc_pkg_low,yes,yes,binary,yes,x86_64-only,rebuild,ELF x86-64
-Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/calc_pkg_low_keep,yes,yes,binary,yes,x86_64-only,rebuild,ELF x86-64
-Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/geom_center,yes,yes,binary,yes,x86_64-only,rebuild,ELF x86-64
-Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/geom_center_keep,yes,yes,binary,yes,x86_64-only,rebuild,ELF x86-64
-Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/delphi_pgf90,yes,yes,binary,yes,x86_64-only,rebuild,ELF x86-64
-Bundled libc,container_build/compile-files/DelphiTools_v3.3.1-container/libc.so.6,yes,yes,shared library,yes,x86_64-only,remove,Do not bundle host x86 libc in ARM image
-GROMACS CPU,/gromacs copied from builder host,no,yes,binary,yes,x86_64-only,rebuild,Current binary is x86-64 ELF
+Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/calc_pkg_low,yes,yes,binary,yes,x86_64-only,rebuild,Still unresolved
+Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/calc_pkg_low_keep,yes,yes,binary,yes,x86_64-only,rebuild,Still unresolved
+Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/geom_center,yes,yes,binary,yes,x86_64-only,rebuild,Still unresolved
+Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/geom_center_keep,yes,yes,binary,yes,x86_64-only,rebuild,Still unresolved
+Delphi binary,container_build/compile-files/DelphiTools_v3.3.1-container/delphi_pgf90,yes,yes,binary,yes,x86_64-only,rebuild,Still unresolved
+Bundled libc,container_build/compile-files/DelphiTools_v3.3.1-container/libc.so.6,yes,yes,shared library,yes,x86_64-only,remove,Should not remain in ARM image
+GROMACS CPU,/gromacs built from source in ARM definition,yes,yes,binary,yes,aarch64-supported,keep,Phase 3 native ARM build successful
 GROMACS GPU,/gromacs-gpu copied from builder host,no,yes,binary,yes,x86_64-only,defer,Not needed for initial ARM target
-Petit,/programs/petit1.6.1 copied from builder host,no,yes,binary,yes,unknown,locate source/build recipe,Missing from repo
+Petit,/programs/petit1.6.1 built from recovered petit.c,yes,yes,binary,yes,aarch64-supported,keep,Phase 2 native ARM build successful
 CUDA libs,/usr/lib/x86_64-linux-gnu/libcufft.so*,no,yes,binary libs,yes,x86_64-only,remove,Excluded from phase 1
 Embedded definition,container_build/defs/CpHMD.embedded.def,yes,yes,recipe,n/a,captured,use as reference,Non-portable absolute host paths
 ARM phase-1 definition,container_build/defs/CpHMD.aarch64.def,yes,no,recipe,n/a,in progress,refine,Portable minimal definition
