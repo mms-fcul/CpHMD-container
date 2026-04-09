@@ -65,11 +65,20 @@ Stage: Base-build
         -DBUILD_SHARED_LIBS=ON \
         -DCMAKE_BUILD_TYPE=Release
     
-    make -j"$(nproc)"
+    GMX_BUILD_JOBS="${SLURM_CPUS_PER_TASK:-4}"
+    if [ "${GMX_BUILD_JOBS}" -gt 8 ]; then
+        GMX_BUILD_JOBS=8
+    fi
+    make -j"${GMX_BUILD_JOBS}"
     make install
     
     cd /
     rm -rf /opt/build-gromacs /opt/src/gromacs
+
+    # Remove known x86-specific Delphi runtime baggage
+    rm -f /Delphi/libc.so.6
+    echo "Delphi payload after cleanup:"
+    file /Delphi/* || true
 
     unset DEBIAN_FRONTEND
 

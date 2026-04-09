@@ -65,7 +65,11 @@ Stage: Base-build
         -DBUILD_SHARED_LIBS=ON \
         -DCMAKE_BUILD_TYPE=Release
     
-    make -j"$(nproc)"
+    GMX_BUILD_JOBS="${SLURM_CPUS_PER_TASK:-4}"
+    if [ "${GMX_BUILD_JOBS}" -gt 8 ]; then
+        GMX_BUILD_JOBS=8
+    fi
+    make -j"${GMX_BUILD_JOBS}"
     make install
     
     cd /
