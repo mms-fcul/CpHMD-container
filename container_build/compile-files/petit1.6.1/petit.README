@@ -1,0 +1,380 @@
+This file is part of PETIT, version 1.6.0.
+
+Copyright (c) 2001-2012, Antonio M. Baptista, Instituto de Tecnologia
+Quimica e Biologica, Universidade Nova de Lisboa, Portugal.
+
+PETIT is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 2 of the License, or (at your
+option) any later version.
+
+PETIT is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with PETIT.  If not, see <http://www.gnu.org/licenses/>.
+
+For further details and info check the README file.
+
+You can get PETIT at <http://www.itqb.unl.pt/simulation>.
+___________________________________________________________________________
+
+
+=========================================================================
+            PETIT : Protein and Electron TITration
+
+     <http://www.itqb.unl.pt/simulation/in-house-software>
+=========================================================================
+
+Authors: Antonio M. Baptista
+--------
+
+
+Citation:
+---------
+
+If you use PETIT in your work please cite the following papers:
+
+- Baptista, A.M., Martel, P.J., Soares, C.M. (1999) Simulation of
+  electron-proton coupling with a Monte Carlo method: application to
+  cytochrome c3 using continuum electrostatics.  Biophys. J.
+  76:2978-2998.
+
+- Baptista, A.M., Soares, C.M. (2001) Some theoretical and
+  computational aspects of the inclusion of proton isomerism in the
+  protonation equilibrium of proteins.  J. Phys. Chem.  105:293-309.
+
+Please report bugs to baptista@itqb.unl.pt.
+
+
+Installation:
+-------------
+
+This distribution of PETIT (eg, tar file) should include the following files:
+
+  - README        : This file, which contains the documentation for PETIT.
+  - petit.c       : C source code of the program.
+  - sample.dat    : Sample input file.
+  - LICENSE       : The distribution license
+
+The source code of PETIT consists of a single file, petit.c (which
+contains lots of global variables and other ugly stuff!).  Only
+standard C functions, libraries, etc, are used (I think...), and
+therefore the compilation should be straightforward.  Just use the
+compilation options you think are adequate to your C compiler and
+machine.  Examples:
+
+  - with GCC [GNU project C and C++ Compiler]:
+    gcc petit.c -o petit-gcc -lm -O3 -ffast-math -funroll-loops -fomit-frame-pointer
+
+  - with ICC [Intel(R) C and C++ compiler]:
+    icc petit.c -o petit-icc -lm -O3 -unroll
+
+
+
+General description:
+--------------------
+
+PETIT is a program to simulate the binding equilibrium of a set of
+protonatable and redox sites, the sampling being done using a Monte
+Carlo (MC) method.  Actually, the program can treat sites with
+multiple and arbitrary states; it is ignorant about the nature of
+those states, which may differ by redox or protonation state,
+conformation, etc.  The theoretical aspects are discussed in refs. [1]
+(inclusion of redox sites) and [2] (inclusion of tautomeric states,
+pointing the generality of the formalism to other arbitrary states).
+Note that PETIT can be used outside of the context of protonation
+and/or redox equilibrium, eg, to perform conformational sampling of
+side-chain conformations.
+
+As shown in ref. [1], the formalism for the joint binding of protons
+and "oxidons" is essentially the same as for protons alone, so that a
+program which computes the energetics for the protonatable case (eg,
+multiflex; see below) can be easily made to do the calculations
+involving the two types of site: one just needs to treat the redox
+sites as being oxidable instead of reducible, ie, as binding "oxidons"
+instead of electrons.
+
+The data needed as input consists of a set of individual free energy
+terms g_i(x_i) for each state x_i of site i, plus a set of pairwise
+free energy terms g_ij(x_i,x_j) for each pair of states x_i and x_j of
+sites i and j (see eq. 24 of [2]).  The format of this input is
+described below.  If no conformational aspects are intended, the data
+may be obtained, eg, from the program multiflex from Donald Bashford's
+package MEAD [3,4], a freely available package for computing intrinsic
+affinities and pairwise interactions for a set of protonatable sites.
+Otherwise, MM energy contributions must somehow be included in the g_i
+and g_ij terms.  Any method may be used, as long as the free energies
+of binding are assumed to be decomposable as a sum of individual and
+pairwise terms [2].
+
+Using the g_i and g_ij terms given as input, PETIT does an MC
+simulation of the binding equilibrium at the conditions corresponding
+to each of the points of a grid of pH-versus-potential specified in
+the command line (see below).  Each MC run computes several binding
+statistics (some optional): mean occupations, fluctuations,
+correlations, occupational + tautomeric entropies, errors,
+"time"-correlations, and the discrimination of binding populations
+within a given set of sites (see Options below).  It is also possible
+to fix the state of individual sites or restrict the type of MC move
+(single or double; see Input below).
+
+
+Note on two-state calculations:
+-------------------------------
+
+If the system of interest has only two-sate (empty/occupied) sites,
+PETIT is _not_ the most efficient program for the MC sampling.  The
+program MCRP is _much_ faster in this case (you can request a free
+copy to the above email address).  This is due to simplifications that
+can be done in the Markov chain, such as the substitution of the
+random selection of a trial state by the flip of the existing state
+(empty<-->occupied), which still ensures the symmetry of the matrix of
+trial moves [1].  Being much faster, two-state calculations are very
+useful to identify the relevant pH-potential region for a subsequent
+multistate calculation.
+
+
+Input:
+------
+
+The input consists of a single stream read from the standard input.
+It consists of three sections (see below) that follow each other
+without any separator.  All the fields in a line are separated by one
+or more spaces (_not_ tabs!).  All variables are read in free C
+format, ie, a string as %s, an integer as %d, a float as %f, etc.
+
+The first section is a single line of the form
+
+<nsites>
+
+where <nsites> is the number of sites.  The numbering of the sites
+will start at zero and go up to <nsites>-1.
+
+The next section contains information for the individual sites,
+arranged as a sequence of site-blocks.  The order used here defines
+which one is site 0, which site 1, etc.  Each site-block starts with a
+first line of the form:
+
+<label>  <nstates>  <type>  <tit>
+
+The field <label> is the string that identifies the site.  The field
+<nstates> is the total number of possible states for that site, an
+integer; the numbering of those states will start at zero and go up to
+<nstates>-1.  The field <type> is a character indicating if the site
+is protonatable (P) or redox (R).  The field <tit> is a string that
+indicates if the titration of the site proceeds through single (s),
+double (d) or both (*) moves, or if the site is non-titrable (n) (ie,
+all its states have the same occupation), or instead fixed in the
+single state whose number is <tit>.  Following this line in the
+site-block, come as many lines as the states of the site, of the
+following form:
+
+<occ>  <g_i>
+
+The field <occ> is the occupancy corresponding to this state.  The
+field <g_i> is the value of g_i corresponding to this state, in units
+of proton squared per Angstrom (e^2/A).  The order used here defines
+which one is state 0, which state 1, etc.  After all <nstates> have
+been thus specified, comes the next site-block, until the info for all
+sites has been read.
+
+The last section contains several lines of the form:
+
+<site_i>  <state_of_i>   <site_j>  <state_of_j>   <g_ij>
+
+each containing the pairwise interaction terms g_ij for the pair of
+sites and states specified; g_ij is in units of proton squared per
+Angstrom (e^2/A).  Only lines with <i> lower than <j> should be
+present.  The order of the loops is <i>, <j>, <state_of_i> and
+<state_of_j>.  Actually, the first four fields are just user-intended,
+since the program ignores them and assumes that the correct order is
+given.
+
+
+Output:
+-------
+
+PETIT uses a single output file where all information is written.  In
+my opinion this simplifies the analysis of the data, because many
+different combinations of data types may need to be analysed.  In
+order to simplify the processing through grep and awk lines/scripts,
+each line starts with a character indicating its type of information.
+The information in this output file is written in a somewhat redundant
+way, but the file is highly compressible (70-90% using gzip).
+
+Lines starting with '#' contain general information, such as the input
+parameters and headers for blocks of data.  They do not follow any
+fixed format.
+
+Lines starting with '.' contain information on the average occupation
+of individual sites and the fraction of their states, for a given pair
+of electrostatic potential (E) and pH values.  Their format is:
+
+.  <E> <pH>  <site#>  <mean_occup>  <frac_state0> <frac_state1> ...
+
+If <site#> is equal to 'totP' or 'totR' the line refers to the total
+occupation of the protonatable or oxidizable sites, respectively; in
+this case the format is slightly different:
+
+. <E> <pH>  <totX>  <mean_occup> <stdev_occup>
+
+where the standard deviation refers also to the total occupation.
+Note that the standard deviations of the occupations of individual
+sites are directly obtained from the mean: stdev**2=mean-mean*mean.
+
+Lines starting with 'P' or 'R' contain the bins for histograms of the
+total occupation of protonatable or oxidizable sites, respectively,
+for a (E,pH) pair.  The formats are:
+
+P <E> <pH>  <bin[0]> <bin[1]> ... <bin[total_of_P_sites]>
+
+where <bin[i]> is the number of occurences with a total of i occupied
+sites of type P or R.
+ 
+Lines starting with 't' contain errors and correlation times.  The
+format is:
+
+t  <E> <pH>  <site#>  <err_mean> (<tcorr>)
+
+The error of the mean occupation and the correlation time (tcorr) of
+the occupations are computed optionally when option -t is used (see
+below).
+
+Lines starting with 'e' contain energetic (thermodynamic) information.
+The format is:
+
+e  <E> <pH>  <site#>  <dG> <dH> <TdS>
+
+The thermodynamic quantities refer to the binding reaction for the
+individual site and correspond respectively to the free energy,
+enthalpy + configurational entropy, and occupational + tautomeric
+entropy (see refs.  [1,2] for details); all values are in kT units.
+When <site#> is equal to 'tot' the line contains the mean and standard
+deviation of the total "energy" (regarding the sampling as if done in
+a canonical ensemble); values are in kT units.  The format is:
+
+e <E> <pH>  tot  <mean_energy> <stdev_energy>
+
+These lines are written only when the option -e is used (see below).
+
+Lines starting with ':' contain the correlation coefficients between
+the occupations of pairs of sites for a (E,pH) pair, and are produced
+by the option -p (see below).  The format is:
+
+: <E> <pH>  <site1#> <site2#>  <corr_coef>
+
+The first site number is always lower than the second, ie, pairs are
+not repeated.  A line with the correlation of the total protonation
+and oxidation is always written (with site "numbers" 'totP' and
+'totR'), even if option -p is not used.
+
+Lines starting with 'm' contain microstate statistics for a set of
+selected sites, for a (E,pH) pair, and are produced by the -S option
+(see below).  The format is
+
+m <E> <pH>  <binding_configuration>  <fraction>
+
+The <binding_configuration> has one digit per site (in the order given
+to the option -S), which is 0 or 1, depending on whether the site is
+empty or occupied.  The <fraction> is relative to the total of
+possible configurations for the set of sites.  Thus, for a set of N
+sites there will be 2^N lines per (E,pH) point, and their <fraction>s
+sum up to unit.
+
+The lines starting with '>' are only produced after all pH values have
+been run for a given value of electrostatic potential (E).  The format
+is:
+
+>  <name>  <site#>  <E>  <pKhalf(s)>
+
+The <name> is the one written in the lines starting with 'n' (see
+above).  The <pKhalf(s)> may be one or several values (up to 5 are
+supported), in case the site has a non-monotonic behaviour in the
+mid-point region.  These lines are written especially for the case of
+protonatable sites only.  Note that Ehalf values are _not_ computed by
+PETIT.
+
+A line starting with 'f' is written at the very end of the run,
+containing the final states of all sites.  The format is:
+
+f <state[0]> <state[1]> ... <state[nsites-1]>
+
+This information may be useful to interface PETIT with other programs.
+
+
+Options:
+--------
+
+  -H pHmin,pHmax,dpH  : pH range and increment.
+
+  -E Emin,Emax,dE     : Electrostatic potential range and increment (mV).
+
+  -T temperature      : Temperature (Kelvin).
+
+  -c couple_min       : Couple threshold for double moves (pH units).
+                        This means that sites whose interaction is >=
+			couple_min will be subjected to double moves
+			during the MC scheme, as done by Beroza et al
+			[5].
+
+  -q eqsteps          : Number of MC equilibration steps before the
+                        production run starts.
+
+  -r seed             : Seed for the random number generator.
+
+  -p min_corr         : Cutoff for printing pair correlation
+                        coefficients.  Only values >= min_corr in
+                        absolute value will be printed.  Note that the
+                        time spent when -p is used is not affected by
+                        its argument.
+
+  -e                  : Compute site energetics.  This gives the
+                        occupational + tautomeric entropy and other
+                        terms for the binding free energy of each site
+                        [1,2].
+
+  -s site1,site2,...  : Set of sites for microstate statistics.  This
+                        means that the relative populations of all
+			binding configurations for this set of sites
+			will be printed.
+
+  -t taumax           : Maximum correlation time.  This switches on
+                        the calculation of time-correlation functions
+                        for the occupancies of individual sites, and
+                        from it the errors of the mean occupancies.
+
+  -d                  : Shows defaults (if alone).
+
+  -v                  : Shows version.
+
+
+Option effects on performance:
+------------------------------
+
+  -s	: Load is negligible for sets up to ~6 elements, but becomes
+          significant for sets above ~10, growing combinatorially.
+
+  -p	: Slows down.  Can significantly increase output volume.
+	  Suggested (because of disk space): -p 0.1
+
+  -e	: Slows down.
+
+  -t	: Slows down a lot.  Use only for selected cases, to estimate
+          errors.  Suggested: -t 20
+
+
+References:
+-----------
+
+[1] Baptista, A.M., Martel P.J., Soares, C.M. (1999) Biophys. J., 76,
+    2978-2998.
+[2] Baptista, A.M., Soares, C.M. (2000) J. Phys. Chem., 105, 293-309.
+[3] Bashford, D., Karplus, M. (1990) Biochemistry, 29, 10219-10225;
+[4] Bashford, D., Gerwert, K. (1992) J. Mol. Biol., 224, 473-486.
+[5] Beroza, P., Fredkin, D.R., Okamura, M.Y., Feher, G. (1991)
+    Proc. Nat. Acad. Sci., 88, 5804-5808.
+
+=========================================================================
