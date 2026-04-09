@@ -32,17 +32,17 @@ Stage: Base-build
     ln -sf /CpHMD/scripts/CpHMD.sh /usr/local/bin/CpHMD.sh
 
     # Build Petit natively for aarch64
-    mkdir -p /programs/petit1.6.1
-    cp -r /tmp/petit-src/* /programs/petit1.6.1/
-
+    test -f /programs/petit1.6.1/petit.c
+    
+    # Remove any carried-over x86 binaries from the recovered payload
+    rm -f /programs/petit1.6.1/petit /programs/petit1.6.1/petit-gcc
+    
     # Try a normal build first; fall back to linking libm explicitly if needed
     gcc -O2 /programs/petit1.6.1/petit.c -o /programs/petit1.6.1/petit || \
     gcc -O2 /programs/petit1.6.1/petit.c -lm -o /programs/petit1.6.1/petit
-
+    
     cp -f /programs/petit1.6.1/petit /programs/petit1.6.1/petit-gcc
-
-    # Keep only ARM-relevant Petit install payload
-    rm -rf /tmp/petit-src
+    chmod 755 /programs/petit1.6.1/petit /programs/petit1.6.1/petit-gcc
 
     unset DEBIAN_FRONTEND
 
@@ -60,7 +60,7 @@ Stage: Base-build
     template/ /Tutorials
 
     # Petit source recovered from the released container
-    container_build/compile-files/petit1.6.1/ /tmp/petit-src
+    container_build/compile-files/petit1.6.1/ /programs/petit1.6.1
 
 #############################
 ## create protonation app
