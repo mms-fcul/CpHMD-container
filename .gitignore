@@ -8,3 +8,11 @@ CpHMD-apptest.sif
 01_clean-temp.sh
 tutorial-testing/
 app-note-testing/
+# Build artifacts
+build_*.log
+cphmd-phase*
+*.sif
+# Extracted runtime files
+*.ff/
+STs-*/
+CpHMD-*.settings
