@@ -1,0 +1,30 @@
+
+### Changes to compile in PGF90
+
+in inc_epsmakmod_setgaussian.f95:
+
+from     real*8      ::coeff,stepsize
+to   ->  real        ::coeff,stepsize
+
+
+##################################################################
+
+INCLUDE TIME FUNCTION
+
+in inc_encalcmod_encalc.f95
+   inc_setbcmod_itit.f95
+   inc_setbcmod_nitit.f95
+   qdiff4v.F95
+
+from     real*4  timediff, timearray(2)
+to  ->   real*4  timediff, timearray(2), dtime
+
+##################################################################
+
+INCLUDE argument count function
+
+in qdiff4v.F95
+
+from     integer :: ifnma(30),arglen
+to  ->   integer :: ifnma(30),arglen, iargc
+

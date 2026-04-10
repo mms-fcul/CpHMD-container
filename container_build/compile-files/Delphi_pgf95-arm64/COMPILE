@@ -1,0 +1,16 @@
+
+
+v2:  -O3 -I$(VPATH)/ -DLINUX -DIFC -Mcray=pointer -fast -Mvect=sse -Mscalarsse -Mcache_align -Mflushz -Munroll -Mnoframe -Mlre
+
+v3:  -O3 -I$(VPATH)/ -DLINUX -DIFC -Mcray=pointer -Mvect=sse -Mscalarsse -Mcache_align -Mflushz -Munroll -Mnoframe -Mlre
+
+v4:  -O3 -I$(VPATH)/ -DLINUX -DIFC -Mcray=pointer -Mvect=sse -Mscalarsse -Mcache_align -Mflushz -Munroll=c:1 -Mnoframe -Mlre
+
+v5:  -O3 -I$(VPATH)/ -DLINUX -DIFC -Mcray=pointer -Mvect=sse -Mscalarsse -Mcache_align -Mflushz -Munroll=c:1 -Mnoframe -Mlre -Mipa
+
+       ADD -Mipa on LFLAGS
+
+v6:  -O3 -I$(VPATH)/ -DLINUX -DIFC -Mcray=pointer -Mvect=sse -Mscalarsse -Mcache_align -Mflushz -Munroll=c:1 -Mnoframe -Mlre -Mipa=fast
+
+       ADD -Mipa=fast on LFLAGS
+
