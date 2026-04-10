@@ -3,6 +3,8 @@ container_build/*
 !container_build/defs/*.def
 !container_build/compile-files/
 container_build/compile-files/*
+!container_build/compile-files/nvhpc-runtime-arm64/
+!container_build/compile-files/nvhpc-runtime-arm64/*
 !container_build/compile-files/Delphi_helpers-arm64/
 !container_build/compile-files/Delphi_helpers-arm64/*
 !container_build/compile-files/Delphi_pgf95-arm64/
