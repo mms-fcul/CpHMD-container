@@ -1,0 +1,14 @@
+Component,Path_or_Source,Present_in_Git,Present_in_SIF,Type,Arch_Sensitive,Current_Status,Action_Needed,Notes
+CpHMD scripts,container_build/compile-files/CpHMD_v3.3.2-container/scripts,yes,yes,scripts,no,portable,keep,
+Analysis scripts,container_build/compile-files/analysis,yes,yes,scripts,no,portable,keep,
+Force fields,container_build/compile-files/FFs,yes,yes,data,no,portable,keep,
+ST files,container_build/compile-files/STs,yes,yes,data,no,portable,keep,
+Databases,container_build/compile-files/Databases,yes,yes,data,no,portable,keep,
+Template settings,template,yes,partly,data,no,portable,keep,Used as /Tutorials in phase 1
+Delphi text assets,container_build/compile-files/DelphiTools_v3.3.1-container,yes,yes,mixed,partly,unknown,audit,Need to identify executable vs text files
+GROMACS CPU,/gromacs copied from builder host,no,yes,binary,yes,x86_64-only,rebuild,Current binary is x86-64 ELF
+GROMACS GPU,/gromacs-gpu copied from builder host,no,yes,binary,yes,x86_64-only,defer,Not needed for initial ARM target
+Petit,/programs/petit1.6.1 copied from builder host,no,yes,binary,yes,unknown,locate source/build recipe,Missing from repo
+CUDA libs,/usr/lib/x86_64-linux-gnu/libcufft.so*,no,yes,binary libs,yes,x86_64-only,remove,Excluded from phase 1
+Embedded definition,container_build/defs/CpHMD.embedded.def,yes,yes,recipe,n/a,captured,use as reference,Non-portable absolute host paths
+ARM phase-1 definition,container_build/defs/CpHMD.aarch64.def,yes,no,recipe,n/a,in progress,refine,Portable minimal definition

@@ -1,0 +1,340 @@
+total 0
+drwxr-xr-x   1 jsequeira users     80 Apr  3 02:43 .
+drwxr-xr-x   1 jsequeira users     80 Apr  3 02:43 ..
+lrwxrwxrwx   1 jsequeira users     27 Aug 25  2025 .exec -> .singularity.d/actions/exec
+lrwxrwxrwx   1 jsequeira users     26 Aug 25  2025 .run -> .singularity.d/actions/run
+lrwxrwxrwx   1 jsequeira users     28 Aug 25  2025 .shell -> .singularity.d/actions/shell
+drwxr-xr-x   5 jsequeira users      0 Aug 25  2025 .singularity.d
+lrwxrwxrwx   1 jsequeira users     27 Aug 25  2025 .test -> .singularity.d/actions/test
+drwxr-xr-x   3 jsequeira users      0 Aug 25  2025 CpHMD
+drwxr-xr-x   2 jsequeira users      0 Aug 25  2025 Databases
+drwxr-xr-x   2 jsequeira users      0 Aug 25  2025 Delphi
+drwxr-xr-x   5 jsequeira users      0 Aug 25  2025 FFs
+drwxr-xr-x   5 jsequeira users      0 Aug 25  2025 STs
+drwxr-xr-x   2 jsequeira users      0 Aug 25  2025 Tutorials
+drwxr-xr-x   2 jsequeira users      0 Aug 25  2025 analysis
+lrwxrwxrwx   1 jsequeira users      7 Apr 22  2024 bin -> usr/bin
+drwxr-xr-x   2 jsequeira users      0 Apr 22  2024 boot
+drwxr-xr-x  18 nobody    nogroup 4.5K Mar 27 12:13 dev
+lrwxrwxrwx   1 jsequeira users     36 Aug 25  2025 environment -> .singularity.d/env/90-environment.sh
+drwxr-xr-x   1 jsequeira users     60 Apr  3 02:43 etc
+drwxr-xr-x   6 jsequeira users      0 Aug 25  2025 gromacs
+drwxr-xr-x   6 jsequeira users      0 Aug 25  2025 gromacs-gpu
+drwxr-xr-x   3 jsequeira users      0 Jul 30  2025 home
+lrwxrwxrwx   1 jsequeira users      7 Apr 22  2024 lib -> usr/lib
+lrwxrwxrwx   1 jsequeira users      9 Apr 22  2024 lib64 -> usr/lib64
+drwxr-xr-x   2 jsequeira users      0 Jul 30  2025 media
+drwxr-xr-x   2 jsequeira users      0 Jul 30  2025 mnt
+drwxr-xr-x   2 jsequeira users      0 Jul 30  2025 opt
+dr-xr-xr-x 354 nobody    nogroup    0 Mar 27 12:13 proc
+drwxr-xr-x   3 jsequeira users      0 Aug 25  2025 programs
+drwx------   2 jsequeira users      0 Jul 30  2025 root
+drwxr-xr-x   4 jsequeira users      0 Aug 25  2025 run
+lrwxrwxrwx   1 jsequeira users      8 Apr 22  2024 sbin -> usr/sbin
+drwxr-xr-x   4 jsequeira users      0 Aug 25  2025 scif
+lrwxrwxrwx   1 jsequeira users     24 Aug 25  2025 singularity -> .singularity.d/runscript
+drwxr-xr-x   2 jsequeira users      0 Jul 30  2025 srv
+dr-xr-xr-x  13 nobody    nogroup    0 Apr  2 18:40 sys
+drwxrwxrwt  16 nobody    nogroup  380 Apr  3 00:35 tmp
+drwxr-xr-x   1 jsequeira users     60 Apr  3 02:43 usr
+drwxr-xr-x  11 jsequeira users      0 Jul 30  2025 var
+/
+/.singularity.d
+/.singularity.d/Singularity
+/.singularity.d/actions
+/.singularity.d/env
+/.singularity.d/labels.json
+/.singularity.d/libs
+/.singularity.d/runscript
+/.singularity.d/startscript
+/CpHMD
+/CpHMD/CpHMD-default.settings
+/CpHMD/scripts
+/Databases
+/Databases/DataBaseT_Amber14SBpH.crg
+/Databases/DataBaseT_Amber14SBpH.siz
+/Databases/DataBaseT_CHARMM36pH.crg
+/Databases/DataBaseT_CHARMM36pH.siz
+/Databases/DataBaseT_G54a7pH.crg
+/Databases/DataBaseT_G54a7pH.siz
+/Delphi
+/Delphi/CRG_FILE
+/Delphi/DELPHI_Memb.pbp
+/Delphi/DELPHI_Prot.pbp
+/Delphi/README.txt
+/Delphi/averaging_g.awk
+/Delphi/calc_pkg_low
+/Delphi/calc_pkg_low_keep
+/Delphi/convert
+/Delphi/delphiT
+/Delphi/delphi_pgf90
+/Delphi/gen_charge.awk
+/Delphi/gen_files.awk
+/Delphi/geom_center
+/Delphi/geom_center_keep
+/Delphi/getst
+/Delphi/gromodels
+/Delphi/libc.so.6
+/Delphi/makepqr
+/Delphi/pdbswitch
+/Delphi/slice.awk
+/Delphi/statepqr
+/Delphi/stmodels
+/FFs
+/FFs/Amber14SBpH.ff
+/FFs/CHARMM36pH.ff
+/FFs/G54a7pH.ff
+/FFs/residuetypes.dat
+/FFs/specbond.dat
+/STs
+/STs/St-Amber14SBpH
+/STs/St-CHARMM36pH
+/STs/St-G54a7pH
+/Tutorials
+/Tutorials/CpHMD-advanced.settings
+/Tutorials/CpHMD-basic.settings
+/Tutorials/Prot-in-solution.zip
+/analysis
+/analysis/Amber14SBpH_LJ-to-radii
+/analysis/GROMOS_LJ-to-radii
+/analysis/add-mol-database.sh
+/analysis/extract_protonation.sh
+/analysis/prepare-pdb.sh
+/boot
+/dev
+/dev/block
+/dev/bus
+/dev/char
+/dev/cpu
+/dev/disk
+/dev/dma_heap
+/dev/dri
+/dev/hugepages
+/dev/input
+/dev/mapper
+/dev/mqueue
+/dev/net
+/dev/pts
+/dev/shm
+/dev/snd
+/dev/vfio
+/etc
+/etc/.pwd.lock
+/etc/X11
+/etc/adduser.conf
+/etc/alternatives
+/etc/apache2
+/etc/apt
+/etc/bash.bashrc
+/etc/bindresvport.blacklist
+/etc/ca-certificates
+/etc/ca-certificates.conf
+/etc/cloud
+/etc/cron.d
+/etc/cron.daily
+/etc/debconf.conf
+/etc/debian_version
+/etc/default
+/etc/deluser.conf
+/etc/dpkg
+/etc/e2scrub.conf
+/etc/emacs
+/etc/environment
+/etc/ethertypes
+/etc/fonts
+/etc/fstab
+/etc/gai.conf
+/etc/gnutls
+/etc/gprofng.rc
+/etc/group
+/etc/group-
+/etc/gshadow
+/etc/gshadow-
+/etc/gss
+/etc/host.conf
+/etc/hostname
+/etc/hosts
+/etc/init.d
+/etc/inputrc
+/etc/issue
+/etc/issue.net
+/etc/kernel
+/etc/ld.so.cache
+/etc/ld.so.conf
+/etc/ld.so.conf.d
+/etc/ldap
+/etc/legal
+/etc/libaudit.conf
+/etc/libibverbs.d
+/etc/libnl-3
+/etc/lighttpd
+/etc/localtime
+/etc/logcheck
+/etc/login.defs
+/etc/logrotate.d
+/etc/lsb-release
+/etc/machine-id
+/etc/magic
+/etc/magic.mime
+/etc/mke2fs.conf
+/etc/networks
+/etc/nsswitch.conf
+/etc/openmpi
+/etc/opt
+/etc/pam.conf
+/etc/pam.d
+/etc/passwd
+/etc/passwd-
+/etc/perl
+/etc/profile
+/etc/profile.d
+/etc/protocols
+/etc/rc0.d
+/etc/rc1.d
+/etc/rc2.d
+/etc/rc3.d
+/etc/rc4.d
+/etc/rc5.d
+/etc/rc6.d
+/etc/rcS.d
+/etc/resolv.conf
+/etc/rpc
+/etc/security
+/etc/selinux
+/etc/services
+/etc/shadow
+/etc/shadow-
+/etc/shells
+/etc/skel
+/etc/ssh
+/etc/ssl
+/etc/subgid
+/etc/subgid-
+/etc/subuid
+/etc/subuid-
+/etc/sysctl.conf
+/etc/sysctl.d
+/etc/systemd
+/etc/terminfo
+/etc/update-motd.d
+/etc/xattr.conf
+/gromacs
+/gromacs-gpu
+/gromacs-gpu/bin
+/gromacs-gpu/include
+/gromacs-gpu/lib
+/gromacs-gpu/share
+/gromacs/bin
+/gromacs/include
+/gromacs/lib
+/gromacs/share
+/home
+/home/ubuntu
+/media
+/mnt
+/opt
+/proc
+/proc/1
+/proc/1002
+/proc/101
+/proc/102
+/proc/103
+/proc/104
+/proc/1065
+/proc/1066
+/proc/1067
+/proc/1068
+/proc/1069
+/proc/107
+/proc/1070
+/proc/1071
+/proc/1072
+/proc/1073
+/proc/1074
+/proc/1075
+/proc/108
+/proc/109
+/proc/1096
+/proc/11
+/proc/110
+/proc/111
+/proc/1119
+/proc/112
+/proc/113
+/proc/114
+/proc/115
+/proc/1150
+/proc/116
+/proc/117
+/proc/118
+/proc/119
+/proc/120
+/proc/121
+/proc/122
+/proc/123
+/proc/124
+/proc/125
+/proc/1251
+/proc/1253
+/proc/1257
+/proc/1258
+/proc/1259
+/proc/1260
+/proc/1261
+/proc/1262
+/proc/1263
+/proc/1264
+/proc/1265
+/proc/1266
+/proc/1267
+/proc/1268
+/proc/1269
+/proc/1270
+/proc/1271
+/proc/1272
+/proc/13
+/proc/1314
+/proc/1368
+/proc/1372
+/proc/1373
+/proc/1375
+/proc/1394
+/proc/1395
+/proc/1396
+/proc/1397
+/proc/1398
+/proc/14
+/proc/1401
+/proc/1402
+/proc/143
+/proc/144
+/proc/146
+/proc/147
+/proc/148
+/proc/149
+/proc/1490
+/proc/1491
+/proc/1496
+/proc/1497
+/proc/15
+/proc/150
+/proc/1509
+/proc/151
+/proc/1514
+/proc/152
+/proc/1524
+/proc/1525
+/proc/1526
+/proc/1527
+/proc/1528
+/proc/1529
+/proc/1530
+/proc/1531
+/proc/1532
+/proc/1533
+/proc/1534
+/proc/1535
+/proc/1536
+/proc/1537
+/proc/1538
+/proc/1539
