@@ -1,4 +1,3 @@
-container_build/*
 template/scripts
 CpHMD.sif
 CpHMD-gpu.sif

@@ -1,0 +1,13 @@
+container_build/*
+<<<<<<< HEAD
+=======
+!container_build/defs/
+!container_build/defs/*.def
+>>>>>>> 1553bad1e062fcc9ad6efcb8396518a508c359d0
+template/scripts
+CpHMD.sif
+CpHMD-gpu.sif
+CpHMD-apptest.sif
+01_clean-temp.sh
+tutorial-testing/
+app-note-testing/
