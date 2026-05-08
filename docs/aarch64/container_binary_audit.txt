@@ -1,0 +1,11 @@
+===== /gromacs/bin//gmx =====
+/gromacs/bin//gmx: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=5cd4a50d32d9d1df838ee252beb8f488ed134073, for GNU/Linux 3.2.0, not stripped
+	linux-vdso.so.1 (0x000077d1ec4b5000)
+	libgromacs.so.9 => /gromacs/bin//../lib/libgromacs.so.9 (0x000077d1ea8e5000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x000077d1ea662000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000077d1ea634000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000077d1ea422000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000077d1ea339000)
+	libgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x000077d1ea2e1000)
+	libmuparser.so.2 => /gromacs/bin//../lib/../lib/libmuparser.so.2 (0x000077d1ea25f000)
+	/lib64/ld-linux-x86-64.so.2 (0x000077d1ec4b7000)

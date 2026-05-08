@@ -1,0 +1,20 @@
+3fa1505 (HEAD -> dev/aarch64-port, origin/main, origin/HEAD, main, feat/aarch64-test, feat/aarch64-build, feat/aarch64-audit, docs/aarch64-porting) Merge branch 'main' of github.com:mms-fcul/CpHMD-container
+713435c Restructured the files so that all are within the main repository
+ec8d546 Merge pull request #11 from jgnseq/tutorials-update
+709c38c Update local usage tutorials for CpHMD container by pointing to the wiki tutorial
+73604c5 (tag: Release-v0.5) Bug fixing errors not stopping program+update-top bug
+73d79af added warning for non default mdp settings for each FF
+49dde4e new implementations
+1a7cd76 (tag: Release-v0.4) cleaned trash
+97e4a07 Merge branch 'main' of github.com:mms-fcul/CpHMD-container
+de8d7d9 changed compilation and updated the example files and templates
+e803936 Update README.md
+eff7f9d (tag: Release-v0.3.1, tag: Release-v0.3) Update README.md
+35d6b72 Update README.md
+3a7d034 Update README.md
+e4c05ae Update README.md
+e31671b README update
+6e7e34d Added GPU support to container
+164523a (tag: Release-v0.2) README update with direct download
+3b6771c Delete .github/workflows directory
+c5d5807 removed .def

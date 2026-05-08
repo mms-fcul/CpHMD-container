@@ -1,0 +1,6 @@
+export PATH="/home/noliveira/Programs/plumed/plumed2/src/lib/:$PATH"
+export LIBRARY_PATH="/home/noliveira/Programs/plumed/plumed2/src/lib/:$LIBRARY_PATH"
+export LD_LIBRARY_PATH="/home/noliveira/Programs/plumed/plumed2/src/lib/:$LD_LIBRARY_PATH"
+export PLUMED_KERNEL="/home/noliveira/Programs/plumed/plumed2/src/lib/libplumedKernel.so"
+export PLUMED_VIMPATH="/home/noliveira/Programs/plumed/plumed2/vim"
+export PYTHONPATH="/home/noliveira/Programs/plumed/plumed2/python:$PYTHONPATH"

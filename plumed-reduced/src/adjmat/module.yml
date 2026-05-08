@@ -1,0 +1,6 @@
+name: adjmat
+authors: Gareth Tribello
+description: methods for calculating adjacency matrices
+dois: []
+tags: 
+  MATRIX: action that calculates an adjacency matrix between atoms

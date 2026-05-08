@@ -652,9 +652,6 @@ update_topology ()
 {
     mv TMP_CpHMD.top TMP_CpHMD-pre.top
     
-    #"$CpHDIR"/scripts/groswitch 1 TMP_MCarlo.out \
-    #             TMP_effective-pre.gro > TMP_effective.gro
-    
     ### First we create a state_file similar to the output of MEAD ###
     
     # Getting res number and res name #

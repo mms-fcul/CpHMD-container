@@ -1,0 +1,26 @@
+== host ==
+/home/jsequeira/Projects/07_LJ-radii/scripts/template/00_tools/01_CpHMD-container
+cna0040.deucalion.macc.fccn.pt
+Fri  3 Apr 02:48:03 WEST 2026
+aarch64
+singularity-ce version 4.3.2-1.el8
+
+== image file ==
+-rw-rw-r-- 1 jsequeira jsequeira 602M Dec  9 19:01 CpHMD.sif
+
+== inspect ==
+FATAL:   Failed to open image CpHMD.sif: the image's architecture (amd64) could not run on the host's (arm64)
+FATAL:   Failed to open image CpHMD.sif: the image's architecture (amd64) could not run on the host's (arm64)
+
+== run basic shell ==
+FATAL:   While checking image: could not open image /home/jsequeira/Projects/07_LJ-radii/scripts/template/00_tools/01_CpHMD-container/CpHMD.sif: the image's architecture (amd64) could not run on the host's (arm64)
+
+== test gmx ==
+FATAL:   While checking image: could not open image /home/jsequeira/Projects/07_LJ-radii/scripts/template/00_tools/01_CpHMD-container/CpHMD.sif: the image's architecture (amd64) could not run on the host's (arm64)
+
+== test delphi ==
+FATAL:   While checking image: could not open image /home/jsequeira/Projects/07_LJ-radii/scripts/template/00_tools/01_CpHMD-container/CpHMD.sif: the image's architecture (amd64) could not run on the host's (arm64)
+
+== test petit ==
+FATAL:   While checking image: could not open image /home/jsequeira/Projects/07_LJ-radii/scripts/template/00_tools/01_CpHMD-container/CpHMD.sif: the image's architecture (amd64) could not run on the host's (arm64)
+Fri  3 Apr 02:48:04 WEST 2026

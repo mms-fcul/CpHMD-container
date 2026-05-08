@@ -35,7 +35,7 @@ Stage: Base-build
   /programs/petit1.6.1 /programs/petit1.6.1
 
   ### Pass analysis scripts to be called in the app module ###
-  /home/noliveira/CpHMD/container-CpHMD-git/container_build/compile-files/analysis/ /analysis
+  ./analysis/ /analysis
 
   ### Pass GROMACS binaries and library dependencies inside the container ###
   
