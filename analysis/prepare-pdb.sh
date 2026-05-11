@@ -93,7 +93,7 @@ do
 	    echo -e "\033[38;2;255;0;02m -- Warning -- \033[m"
 	    echo -e "Cys is a sensitive residue to treat. If you are sure that no cysteine in your protein is oxidized then use \033[38;2;255;0;02m cys-force\033[m instead of cys to convert cysteines into CpHMD nomenclature."
 	    echo ;;
-	cys-force|Cys-force|CYS-force)
+	cys-force|Cys-force|CYS-force|CYS-FORCE)
 	    sed -i 's/CYS/CY0/' ./${fname}_CpHMD.pdb ;;
 	his|His|HIS)
 	    sed -i 's/HIS/HI2/; s/HSD/HI0/ ; s/HSE/HI1/ ; s/HSP/HI2/ ; s/HID/HI0/ ; s/HIE/HI1/ ; s/HIP/HI2/' ./${fname}_CpHMD.pdb ;;
