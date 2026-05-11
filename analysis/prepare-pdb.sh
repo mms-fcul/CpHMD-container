@@ -38,11 +38,11 @@ while getopts "hp:f:r:" opt ; do
 	   fi ;;
 	f) fg=${OPTARG} ;
 	   case $fg in
-	       GROMOS|Gromos|gromos)\
+	       G54a7pH|G54a7|GROMOS|Gromos|gromos)\
 		   ff="G54a7pH" ;;
-	       CHARMM|Charmm|charmm)\
+	       CHARMM36pH|CHARMM36|CHARMM|Charmm|charmm)\
 		   ff="CHARMM36pH" ;;
-	       AMBER|Amber|amber)\
+	       Amber14SBpH|Amber14SB|AMBER|Amber|amber)\
 		   ff="Amber14SBpH" ;;
 	       *|"")\
 		   echo "Missing or invalid force field to prepare your pdb. Please give one of the following GROMOS, CHARMM, AMBER. " ;;

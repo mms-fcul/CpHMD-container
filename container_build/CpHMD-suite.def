@@ -73,9 +73,7 @@ Usage:
 
   ### Pass GROMACS binaries and library dependencies inside the container ###
   
-  /gromacs/gromacs-2024.3/ /gromacs
-  /gromacs/gromacs-2024.3-GPU/ /gromacs-gpu
-  /home/noliveira/Programs/plumed/gromacs-2024.3-nvidia-plumed/ /gromacs-plumed
+  /home/noliveira/Programs/plumed/gromacs-2024.3-nvidia-plumed/ /gromacs
 
   ## Get libraries for GROMACS binaries ##
   /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58 /usr/lib/x86_64-linux-gnu/libcufft.so.10
@@ -125,11 +123,11 @@ Usage:
 
 %apprun extract-force-fields
      case $1 in
-     GROMOS|Gromos|gromos)\
+     G54a7pH|G54a7|GROMOS|Gromos|gromos)\
           cp -rf  /FFs/G54a7pH.ff/ ./G54a7pH.ff/ ;;
-     CHARMM|Charmm|charmm)\
+     CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm)\
           cp -rf /FFs/CHARMM36pH.ff/ ./CHARMM36pH.ff/ ;;
-     AMBER|Amber|amber)\
+     Amber14SBpH|Amber14SB|AMBER|Amber|amber)\
           cp -rf /FFs/Amber14SBpH.ff/ ./Amber14SBpH.ff/ ;;
      ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
      esac
@@ -149,11 +147,11 @@ Usage:
 
 %apprun extract-tautomers
      case $1 in
-     GROMOS|Gromos|gromos)\
+     G54a7pH|G54a7|GROMOS|Gromos|gromos)\
           cp -rf /STs/St-G54a7pH.ff/ ./STs-G54a7pH.ff/ ;;
-     CHARMM|Charmm|charmm)\
+     CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm)\
           cp -rf /STs/St-CHARMM36pH.ff/ ./STs-CHARMM36pH.ff/ ;;
-     AMBER|Amber|amber)\
+     Amber14SBpH|Amber14SB|AMBER|Amber|amber)\
           cp -rf /STs/St-Amber14SBpH.ff/ ./STs-Amber14SBpH.ff/ ;;
      ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
      esac
@@ -176,11 +174,11 @@ Usage:
 %apprun extract-databases
      mkdir -p ./Databases	
      case $1 in
-     GROMOS|Gromos|gromos|G54a7pH)\
+     G54a7pH|G54a7|GROMOS|Gromos|gromos|G54a7pH)\
           cp -rf /Databases/DataBaseT_G54a7pH.* ./Databases/ ;;
-     CHARMM|Charmm|charmm|CHARMM36pH)\
+     CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm|CHARMM36pH)\
           cp -rf /Databases/DataBaseT_CHARMM36pH.ff/ ./Databases/ ;;
-     AMBER|Amber|amber|Amber14SBpH)\
+     Amber14SBpH|Amber14SB|AMBER|Amber|amber|Amber14SBpH)\
           cp -rf /Databases/DataBaseT_Amber14SBpH.ff/ ./Databases/ ;;
      ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
      esac

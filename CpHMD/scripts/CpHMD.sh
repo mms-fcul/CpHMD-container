@@ -95,7 +95,7 @@ if  [[ -n $plumed && "${plumed}" -eq "1" ]] ; then
 fi
 
 #############################################################
-# add the correct cicles depending on the size of block asked
+# add the correct cycles depending on the size of block asked
 #############################################################
 dt=`awk '/dt/ {print $3}' ${SysName}.mdp`
 if [ -z "$dt" ] ;
@@ -110,25 +110,27 @@ message W "Running CpHMD cycles from $InitCycle until $EndCycle with 20 ps each 
 
 #################################################
 ## PLUMED Detection rebasing ##
+## Currently unused as the containerized gmx   ##
+## was compiled with GPU and Plumed support    ## 
 #################################################
-if [[ $plumed == 1 ]] ;then
-    ## change /gromacs file if it is the standard one ##
-    if [ $GroDIR == "/gromacs/bin/gmx" ] ; then
-	export GroDIR="/gromacs-plumed/bin/gmx"
-	message W "PLUMED support requested, changing the gromacs compilation to PLUMED $GroDIR"
-    fi
-fi
+#if [[ $plumed == 1 ]] ;then
+#    ## change /gromacs file if it is the standard one ##
+#    if [ $GroDIR == "/gromacs/bin/gmx" ] ; then
+#	export GroDIR="/gromacs-plumed/bin/gmx"
+#	message W "PLUMED support requested, changing the gromacs compilation to PLUMED $GroDIR"
+#    fi
+#fi
 
 #################################################
 ## GPU Detection and mdrun parameters rebasing ##
 #################################################
 
 if [[ $GPU == 1 ]] ;then
-    ## change GPU /gromacs file if it is the standard one ##
-    if [ $GroDIR == "/gromacs/bin/gmx" ] ; then
-	export GroDIR="/gromacs-gpu/bin/gmx"
-	message W "GPU support requested, changing the gromacs compilation to gpu $GroDIR"
-    fi
+    ### change GPU /gromacs file if it is the standard one ##
+    #if [ $GroDIR == "/gromacs/bin/gmx" ] ; then
+    #	export GroDIR="/gromacs-gpu/bin/gmx"
+    #	message W "GPU support requested, changing the gromacs compilation to gpu $GroDIR"
+    #fi
     
    OMP_NUM_THREADS=$nCPU
 

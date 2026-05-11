@@ -9,7 +9,7 @@ Help()
     echo
     echo "options:"
     echo "h    Print this Help."
-    echo "f    force field name (GROMOS,CHARMM,AMBER) or custom location of ffnonbonded.itp."
+    echo "f    force field name (G54a7pH;CHARMM36pH;AMBER~14SBpH) or custom location of ffnonbonded.itp."
     echo "i    itp file for the molecule to add (can be obtained by CHARMM-GUI for example"
     echo "r    Names of the moleculetypes as they appear in the .itp file. Can be more than one. (needs testing)"
     echo "e    Energy for Lennard-Jonnes radii calculation, zero, min, RT, 2RT,5RT (default 2RT) "
@@ -41,15 +41,15 @@ while getopts "hf:i:e:r:" opt ; do
 	   fi ;;
 	f) ff=${OPTARG} ;
 	   case $ff in
-	       GROMOS|Gromos|gromos)\
+	       G54a7pH|G54a7|GROMOS|Gromos|gromos)\
 		   ffloc="/FFs/G54a7pH.ff/ffnonbonded.itp" ;
 		   dbloc="DataBaseT_G54a7pH" ;
 		   ;;
-	       CHARMM|Charmm|charmm)\
+	       CHARMM36pH|CHARMM36|CHARMM|Charmm|charmm)\
 		   ffloc="/FFs/CHARMM36pH.ff/ffnonbonded.itp" ;
 		   dbloc="DataBaseT_CHARMM36pH" ;
 		   ;;
-	       AMBER|Amber|amber)\
+	       Amber14SBpH|Amber14SB|AMBER|Amber|amber)\
 		   ffloc="/FFs/Amber14SBpH.ff/ffnonbonded.itp" ;
 		   dbloc="DataBaseT_Amber14SBpH" ;
 		   ;;
