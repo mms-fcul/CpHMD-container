@@ -60,7 +60,8 @@ Stage: Base-build
         -DGMX_MPI=OFF \
         -DGMX_OPENMP=ON \
         -DGMX_GPU=OFF \
-        -DGMX_SIMD=None \
+        -DGMX_SIMD=ARM_SVE \
+        -DGMX_SIMD_ARM_SVE_LENGTH=512 \
         -DGMXAPI=OFF \
         -DBUILD_SHARED_LIBS=ON \
         -DCMAKE_BUILD_TYPE=Release
