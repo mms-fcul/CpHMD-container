@@ -30,7 +30,6 @@ export include_itp=0        # Correctly treats systems pbc when solute is includ
 export TOPin="penta.top"    # The topology of your system
 export GROin="penta.gro"    # The initial (gro) file
 export NDXin="index.ndx"    # Index must contain "System/Protein/Solute/SOL" and "Onetail/Monotail/Bitail" for membrane
-export CpHcontainer=""      # Full path location on where the container is located 
 #
 ###########################
 #                         #  

@@ -2,16 +2,47 @@ Bootstrap: docker
 From: ubuntu:24.04
 Stage: Base-build
 
+%help
+
+This container contains:
+  - The binaries from GROMACS 2024.3 compiled for CPU, CUDA, and for plumed support.
+  - All base code for CpHMD framework
+  - Delphi binary to run the PB step of the cycle with all base databases for GROMOS,CHARMM,AMBER
+  - petit 1.6.1 for the Monte Carlo protonation vector determination needed for the PB/MC step. 
+  - Force Fields GROMOS, CHARMM, AMBER with the basic titratable amino acids.
+  - tautomer files for the titratable amino acids (required for PB/MC cycle)
+  - Several container apps usefull for system build, file extraction, and analysis. 
+
+Usage:
+  singularity exec (--nv) --bind <your file directory> CpHMD.sif ./CpHMD-(basic|advanced).settings
+
+
 %post
+  
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
   apt-get upgrade -y
-  apt-get install -y curl cmake fftw-dev python3.8-dev gcc build-essential openmpi-common openmpi-bin libopenmpi-dev bc gawk && \
+  apt-get install -y \
+  curl \
+  cmake \
+  fftw-dev \
+  gcc \
+  build-essential \
+  openmpi-common \
+  openmpi-bin \
+  libopenmpi-dev \
+  bc \
+  gawk && \
   apt-get clean -y && \
   rm -rf /var/lib/apt/lists/*
 
   ln -s /CpHMD/scripts/CpHMD.sh /bin/CpHMD.sh
   ln -s /gromacs-gpu/bin/gmx /bin/gmx-gpu
+
+  cd /plumed
+  ./configure
+  make -j 4
+  make install
   
   unset DEBIAN_FRONTEND
 
@@ -21,6 +52,7 @@ Stage: Base-build
   export PATH=$PATH:/CpHMD/scripts/
   export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH 
   export PATH=/usr/local/bin:$PATH  # Ensure custom installs are on PATH
+  export PLUMED_KERNEL=/usr/local/lib/libplumedKernel.so
 
 %files
   ### Pass base CpHMD programs and files inside the container ###
@@ -31,8 +63,10 @@ Stage: Base-build
   ./STs /STs
   ./Databases /Databases
   ./tutorials /Tutorials
-  ./template /Template
-  /programs/petit1.6.1 /programs/petit1.6.1
+  ./petit1.6.1 /programs/petit1.6.1
+
+  ## Passing plumed reduced files for the build ##
+  ./plumed /plumed
 
   ### Pass analysis scripts to be called in the app module ###
   ./analysis/ /analysis
@@ -41,13 +75,18 @@ Stage: Base-build
   
   /gromacs/gromacs-2024.3/ /gromacs
   /gromacs/gromacs-2024.3-GPU/ /gromacs-gpu
-  /usr/local/lib/libfftw3f.so.3  /usr/local/lib/libfftw3f.so.3 
-  /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58 /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58
-  /usr/lib/x86_64-linux-gnu/libcufft.so.10 /usr/lib/x86_64-linux-gnu/libcufft.so.10
-  /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95 /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95
-  /usr/lib/x86_64-linux-gnu/libcufft.so.11 /usr/lib/x86_64-linux-gnu/libcufft.so.11
-  /usr/lib/x86_64-linux-gnu/libgomp.so.1 /usr/lib/x86_64-linux-gnu/libgomp.so.1
+  /home/noliveira/Programs/plumed/gromacs-2024.3-nvidia-plumed/ /gromacs-plumed
 
+  ## Get libraries for GROMACS binaries ##
+  /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58 /usr/lib/x86_64-linux-gnu/libcufft.so.10
+  /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95 /usr/lib/x86_64-linux-gnu/libcufft.so.11
+  /usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0 /usr/lib/x86_64-linux-gnu/libgomp.so.1
+
+  #### libs for plumed ###
+  /usr/local/lib/libplumedKernel.so /usr/local/lib/libplumedKernel.so
+  /usr/local/lib/libmpi.so.20 /usr/local/lib/libmpi.so.20
+  /usr/local/lib/libopen-rte.so.20 /usr/local/lib/libopen-rte.so.20
+  /usr/local/lib/libopen-pal.so.20 /usr/local/lib/libopen-pal.so.20
 
 
   #############################
@@ -164,7 +203,7 @@ Stage: Base-build
   ########################################################
 
 %apprun get-settings
-      cp -rf /Template/CpHMD-$1.settings ./
+      cp -rf /Tutorials/CpHMD-$1.settings ./
 
 %apphelp get-tutorials
      This app copies  a .settings file to the folder.

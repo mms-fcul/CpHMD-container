@@ -42,6 +42,18 @@ export seed=1234567         # Monte Carlo seed used in program petit.
 
 ##########################################
 #
+# --    Reduced Titration settings    -- #
+#
+##########################################
+export ReduceTitration=0          # turn reduced titration on or off (1/0)
+
+################################
+# Plumed integration variables #
+################################
+export plumed=0          # turn plumed on or off (1/0)
+
+##########################################
+#
 # -- Input File Location (full PATHs) -- #
 #
 ##########################################
@@ -66,15 +78,20 @@ export DatabaseDIR="/Databases"
 #####################################
 #
 #  -- Defining mdrun parameters --  #
+#
+#####################################
 export mdruncpu="mdrun -nt $nCPU -pin auto " # Define which command should be used for parallel run
+
 export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto "
 
-export mdpoverride=0
 #########################################
 #
 ###  Start of mdp file for CpHMD     ###
 #
 ########################################
+
+export mdpoverride=0
+
 #mdp# define                 = 
 #mdp# integrator             =  md
 #mdp# tinit                  =  0.0 ; Overridden with the value calculated by CpHMD
@@ -127,22 +144,3 @@ export mdpoverride=0
 #mdp# lincs_order          = 8
 #mdp# constraints          = all-bonds
 #mdp# lincs-warnangle      = 90
-########################################
-#
-###  Start of fixgro file for CpHMD     ###
-#
-########################################
-# This file will only be used when 2 chains are present or if 
-# include_itp=1 flag is given! 
-#
-#fixgro# G Protein
-#fixgro# a 1 1367
-#fixgro# 
-#fixgro# # Groups to be (sequentially) assembled:
-#fixgro# A Protein
-#fixgro# 
-#fixgro# # Groups to be centered along each of the three box vectors:
-#fixgro# C Protein Protein Protein W W W
-#fixgro# 
-#fixgro# # Use PBC "P System System None" along each of the three box vectors:
-#fixgro# P Protein Protein Protein

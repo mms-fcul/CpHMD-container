@@ -622,7 +622,7 @@ run_PBMC()
     #
     #### ADD reduce titration code here! ####
 
-    if [[ $write_states == "y" ]]; then  # added #AB 2020
+    if [[ $write_states == "y" ]] && [[ $ReduceTitration == 1 ]] ; then  # added #AB 2020
 	gawk -v c=$Cycle '
               /^\./ && $4!~"tot" {s=$4; gsub($1" +"$2" +"$3" +"$4,"");p[s]=$0};
               /^>/ {n[$3]=$2};

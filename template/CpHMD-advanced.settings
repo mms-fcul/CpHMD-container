@@ -45,6 +45,30 @@ export seed=1234567         # Monte Carlo seed used in program petit.
 
 ##########################################
 #
+# --    Reduced Titration settings    -- #
+#
+##########################################
+export ReduceTitration=0
+export RTThreshold=0.01
+export RTInterval=5
+## RT debug ##
+export write_states="y"
+
+############################################
+#
+# --    Plumed MetaDynamics settings    -- #
+#
+############################################
+
+export plumed=0               # turn plumed on or off (1/0)
+export plumedtype=grid        #static/grid/hill
+export colvar_name="colvar"
+export colvar_stride=1000     #Should be equal to the nstxtcout-compressed number of timesteps (ex.: 1000 * 0.002 = 2 ps)
+export grid_name="GRIDS"      # name of the GRIDS file
+export hills="HILLS"          # name of the HILLS file
+
+##########################################
+#
 # -- Input File Location (full PATHs) -- #
 #
 ##########################################
@@ -66,9 +90,11 @@ export PetitDIR=""          # Petit program
 export ffDIR=""             # Forcefield folder
 export DatabaseDIR=""       # Location of the Delphi databases
 
-export CpHcontainer=""      # Full path location on where the container is located 
-
-## MDrun parameters ##
+############################
+#                          #  
+## -- MDrun parameters -- ##
+#                          #
+############################
 export mdruncpu="mdrun -nt $nCPU -pin auto "                       # Define which command should be used for CPU parallel run
 export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto " # Define which command should be used for GPU run
 
@@ -130,11 +156,12 @@ export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto " # Define whic
 #mdp# lincs_order          = 8
 #mdp# constraints          = all-bonds
 #mdp# lincs-warnangle      = 90
-########################################
+
+###########################################
 #
 ###  Start of fixgro file for CpHMD     ###
 #
-########################################
+###########################################
 # This file will only be used when 2 chains are present or if 
 # include_itp=1 flag is given! 
 #
@@ -149,3 +176,30 @@ export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto " # Define whic
 #fixgro# 
 #fixgro# # Use PBC "P System System None" along each of the three box vectors:
 #fixgro# P Protein Protein Protein
+
+############################################
+#
+###  Start of plumed file for PLUMED     ###
+#
+############################################
+# Check if the timesteps and temperature values are consistent with previous settings
+#plumed# # Activate MOLINFO functionalities
+#plumed# MOLINFO STRUCTURE=/home/noliveira/CpHMD/test-systems/CpHMD-3.4/GROMOS/HEWL-noRT/test-cphmd-plumed/rep1.pdb
+#plumed# RESTART # Do not remove this line. This is ignored for the first cycle in each block
+#plumed# chi: TORSION ATOMS=38,39,47,61
+#plumed# ade:  GROUP ATOMS=58,52,61
+#plumed# uri1: GROUP ATOMS=26,22,18
+#plumed# uri2: GROUP ATOMS=92,88,84
+#plumed# eRMSD: ERMSD REFERENCE=/home/noliveira/CpHMD/test-systems/CpHMD-3.4/GROMOS/HEWL-noRT/test-cphmd-plumed/rep1.pdb ATOMS=ade,uri1,uri2 
+#plumed# # Activate well-tempered metadynamics in phi
+#plumed# metad: METAD ARG=chi,eRMSD PACE=500 HEIGHT=2.0 SIGMA=0.35,0.1 BIASFACTOR=8 TEMP=300 FILE=&hills GRID_MIN=-pi,0 GRID_MAX=pi,2 GRID_WSTRIDE=500 GRID_WFILE=&grid_name GRID_RFILE=&grid_name 
+#plumed#    # Deposit a Gaussian every 500 time steps, with initial height 
+#plumed#    # equal to 1.2 kJ/mol and bias factor equal to 2 
+#plumed#    
+#plumed#    # Gaussian width (sigma) should be chosen based on the CV fluctuations in unbiased run 
+#plumed#    # try 1/2 or 1/3 of the estimated fluctuations 
+#plumed#    
+#plumed#    # Gaussians will be written to file and also stored on grid 
+#plumed# 
+#plumed# # Print both collective variables on COLVAR file every colvar_stride steps (Xps)
+#plumed# PRINT ARG=chi,eRMSD,metad.bias  STRIDE=&colvar_stride FILE=&colvar_name 
