@@ -88,9 +88,9 @@ check_files ()
     
     if (( $mdpoverride == 0 )) ; # if override is turned off check values
     then
-	## check for force-switch settings and FF != CHARMM
-	if grep -q vdw-modifier ${runname}.mdp && [ $ffID != "CHARMM36pH" ] ; then
-	    message E "Error: VDW-modifier given in mdp but force-field different than CHARMM, remove this option from the mdp in the settings file. If it is intended to not use the default parameters please add to your settings file the flag: export mdpoverride=1 "
+	## check for force-switch settings and FF != CHARMM or AMBER
+	if grep -q vdw-modifier ${runname}.mdp && [ $ffID == "G54a7pH" ] ; then
+	    message E "Error: VDW-modifier given in mdp for G54a7 force-field, confirm this option is intended to be used within this force-field. If it is intended, add to your settings file the flag: export mdpoverride=1 "
     fi    
 	## Check if ff gromos vdw and coul = 1.2 or 1.0
 	if [[ `awk -F "=" '$1~"rvdw " {print $2+0}'  ${runname}.mdp` != "1.0" && `awk -F "=" '$1~"rvdw " {print $2+0}'  ${runname}.mdp` != "1.4" && \

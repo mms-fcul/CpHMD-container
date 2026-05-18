@@ -37,7 +37,6 @@ Usage:
   rm -rf /var/lib/apt/lists/*
 
   ln -s /CpHMD/scripts/CpHMD.sh /bin/CpHMD.sh
-  ln -s /gromacs-gpu/bin/gmx /bin/gmx-gpu
 
   cd /plumed
   ./configure
