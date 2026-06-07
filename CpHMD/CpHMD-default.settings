@@ -41,9 +41,9 @@ export offset=2000          # Integer higher than residue number .gro
 
 # Optional support for large/complex membrane systems.
 # Defaults preserve the historical behaviour.
-export UseInputOffset=0          # 0: calculate offset automatically; 1: use the offset value above
+export UseInputOffset=0     # 0: calculate offset automatically; 1: use the offset value above
 export MembraneCenteringProtocol="tails"  # tails: Onetail/Monotail/Bitail; central_atoms: CentralAtom/CentralAtoms
-export PBMCDebugPDB=0            # 1: append PB/MC input PDB snapshots to ${SysName}_CpHrun_PQR.pdb
+export PBMCDebugPDB=0       # 1: append PB/MC input PDB snapshots to ${SysName}_CpHrun_PQR.pdb
 export seed=1234567         # Monte Carlo seed used in program petit.
 
 ##########################################
@@ -52,6 +52,9 @@ export seed=1234567         # Monte Carlo seed used in program petit.
 #
 ##########################################
 export ReduceTitration=0          # turn reduced titration on or off (1/0)
+# Only applicable if ReduceTitration=1:
+export RTThreshold=0.01           # reduced titration threshold for fixing highly populated sites
+export RTInterval=5               # interval, in CpHMD cycles, between full all-site PB/MC updates
 
 ################################
 # Plumed integration variables #
