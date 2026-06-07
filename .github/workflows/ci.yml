@@ -1,0 +1,77 @@
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Bash syntax checks
+        run: |
+          set -euo pipefail
+
+          bash -n CpHMD/scripts/CpHMD.sh
+          bash -n CpHMD/scripts/functions.sh
+
+          find CpHMD/scripts -maxdepth 1 -type f \
+            \( -name "*.sh" -o -name "fixgro" -o -name "make_sites" -o -name "update-top" \) \
+            -print0 | xargs -0 -r bash -n
+
+      - name: Shellcheck main scripts
+        run: |
+          set -euo pipefail
+
+          shellcheck -x CpHMD/scripts/CpHMD.sh CpHMD/scripts/functions.sh || true
+
+      - name: Check executable helper scripts
+        run: |
+          set -euo pipefail
+
+          test -x CpHMD/scripts/fixgro
+          test -x CpHMD/scripts/make_sites
+          test -x CpHMD/scripts/update-top
+
+      - name: Check required settings defaults
+        run: |
+          set -euo pipefail
+
+          grep -q "ReduceTitration" CpHMD/CpHMD-default.settings
+          grep -q "RTInterval" CpHMD/CpHMD-default.settings
+          grep -q "RTThreshold" CpHMD/CpHMD-default.settings
+          grep -q "UseInputOffset" CpHMD/CpHMD-default.settings
+          grep -q "MembraneCenteringProtocol" CpHMD/CpHMD-default.settings
+          grep -q "PBMCDebugPDB" CpHMD/CpHMD-default.settings
+
+      - name: Check ASIC database support
+        run: |
+          set -euo pipefail
+
+          grep -q "CYX" Databases/DataBaseT_Amber14SBpH.crg
+          grep -q "CYX" Databases/DataBaseT_Amber14SBpH.siz
+
+          grep -Eq "PPA|POPC|PA" Databases/DataBaseT_Amber14SBpH.crg
+          grep -Eq "PPA|POPC|PA" Databases/DataBaseT_Amber14SBpH.siz
+
+      - name: Check reduced titration hooks
+        run: |
+          set -euo pipefail
+
+          grep -q "write_fractions_all_sites" CpHMD/scripts/functions.sh
+          grep -q "TMP_template_occ" CpHMD/scripts/functions.sh
+          grep -q "TMP_template_mocc" CpHMD/scripts/functions.sh
+          grep -q "run_PBMC red" CpHMD/scripts/CpHMD.sh
+          grep -q "RTInterval" CpHMD/scripts/CpHMD.sh
