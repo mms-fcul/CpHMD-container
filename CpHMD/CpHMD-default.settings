@@ -38,6 +38,12 @@ export bndcon=4             # Potential at Boundary of large box (4 -> Coul)
 export maxc=0.01            # The convergence threshold values
 export pot=0.0              # Electrostatic potential (mV).
 export offset=2000          # Integer higher than residue number .gro 
+
+# Optional support for large/complex membrane systems.
+# Defaults preserve the historical behaviour.
+export UseInputOffset=0          # 0: calculate offset automatically; 1: use the offset value above
+export MembraneCenteringProtocol="tails"  # tails: Onetail/Monotail/Bitail; central_atoms: CentralAtom/CentralAtoms
+export PBMCDebugPDB=0            # 1: append PB/MC input PDB snapshots to ${SysName}_CpHrun_PQR.pdb
 export seed=1234567         # Monte Carlo seed used in program petit.
 
 ##########################################

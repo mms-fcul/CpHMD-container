@@ -125,6 +125,31 @@ check_files ()
     if [[ $plumed != "0" ]] && [[ ! -f ${runname}_plumed.dat ]] ;then
 	message E  "File ${runname}_plumed.dat not found... Program will crash"        
     fi
+
+    #############################################################
+    ## Optional ASIC/generalized behaviour controls            ##
+    #############################################################
+    # MembraneCenteringProtocol="tails" keeps the historical membrane
+    # centering workflow and requires the Onetail/Monotail/Bitail index
+    # groups. MembraneCenteringProtocol="central_atoms" uses the ASIC
+    # workflow and requires CentralAtom/CentralAtoms groups.
+    : "${MembraneCenteringProtocol:=tails}"
+    if [[ $MembraneCenteringProtocol != "tails" && $MembraneCenteringProtocol != "central_atoms" ]]; then
+	message E "MembraneCenteringProtocol=$MembraneCenteringProtocol is not supported. Use tails or central_atoms."
+    fi
+
+    # UseInputOffset=0 preserves the historical automatic offset from the
+    # last protein residue number. UseInputOffset=1 keeps the user-provided
+    # offset value from the settings file.
+    : "${UseInputOffset:=0}"
+    if [[ $UseInputOffset != 0 && $UseInputOffset != 1 ]]; then
+	message E "UseInputOffset=$UseInputOffset is not supported. Use 0 or 1."
+    fi
+
+    : "${PBMCDebugPDB:=0}"
+    if [[ $PBMCDebugPDB != 0 && $PBMCDebugPDB != 1 ]]; then
+	message E "PBMCDebugPDB=$PBMCDebugPDB is not supported. Use 0 or 1."
+    fi
 	
 }
 
@@ -424,12 +449,18 @@ make_sites ()
     ##################### Adition for offset check ############################
     ## Define Offset and verify if it is able the system is able to compute  ##
     ###########################################################################
-    ## negate the pattern match of declaring an array with the chainres ##
+    ## UseInputOffset=0 keeps the historical automatic offset.               ##
+    ## UseInputOffset=1 keeps the value supplied in the settings file.       ##
+    ###########################################################################
     
-    last_res=`awk '/ATOM/ {print substr($0,23,4)}' TMP_protein.pdb | tail -n 1`
-    export offset=`echo $last_res | awk '{print $1 +10}'`
-    ###############  Debug addition #############
-    message W "Current set up offset is $offset" 
+    if [[ ${UseInputOffset:-0} -eq 1 ]]; then
+	export offset=${offset:-2000}
+	message W "Using user-defined PB/MC offset from settings: $offset"
+    else
+	last_res=`awk '/ATOM/ {print substr($0,23,4)}' TMP_protein.pdb | tail -n 1`
+	export offset=`echo $last_res | awk '{print $1 +10}'`
+	message W "Using automatically determined PB/MC offset: $offset"
+    fi
 
     last_tit=`awk '{print $1}' ${runname}.sites | tail -n 1 `
 
@@ -447,33 +478,50 @@ make_delphi_DB()
     echo "atom__res_radius_" > ./DataBaseT.siz
     echo "atom__resnumbc_charge_" > ./DataBaseT.crg
     for type in crg siz ; do
+	#####################################################################
+	## Resolve and validate the Delphi database used for this run.     ##
+	## This keeps the historical DatabaseDIR interface, but makes       ##
+	## container/bind-mount mistakes explicit in the error messages.    ##
+	#####################################################################
+	db_file="$DatabaseDIR/DataBaseT_${ffID}.${type}"
+
+	if [[ -z "$DatabaseDIR" ]]; then
+            message E "DatabaseDIR is not defined. Set export DatabaseDIR to the directory containing DataBaseT_${ffID}.${type}."
+	fi
+
+	if [[ ! -f "$db_file" ]]; then
+            message E "Delphi database file not found: $db_file"
+	fi
+
+	message W "Using Delphi database file: $db_file"
+
 	## Insert the terminals in the database
 	for ter in CT NT; do
 	    case $type in
-		crg)   awk -v t=$ter '$2~t {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
-		siz)   awk -v t=$ter '$2~t {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+		crg)   awk -v t=$ter '$2~t {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$db_file" >> ./DataBaseT.${type} ;;
+		siz)   awk -v t=$ter '$2~t {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$db_file" >> ./DataBaseT.${type} ;;
 	    esac
 	done
 	## Insert other residues
 	for db_res in `awk '/ATOM/ {print substr($0,18,4)}' TMP_protein.pdb | sort | uniq` ; do	    
-	    if [[ ! -z `awk -v d=$db_res '$2==d {print}' "$DatabaseDIR"/DataBaseT_${ffID}.${type}` ]] ; then
+	    if [[ ! -z `awk -v d=$db_res '$2==d {print}' "$db_file"` ]] ; then
 		## If the third character of the residue name is a number (hence a CpHMD residue most likely) ##
 		if [[ `echo $db_res | awk '{if (substr($1,3,1) ~ /^[0-9]/) {print 1}}' ` == 1 ]] ;then
 		    ## Check for the residue in question to not be in the database already ##
 		    if [[ -z `awk  -v d=${db_res} '$2==d {print}' ./DataBaseT.${type}` ]] ; then
 			case $type in
-			    crg)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
-			    siz)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+			    crg)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$db_file" >> ./DataBaseT.${type} ;;
+			    siz)   awk -v d=${db_res} '$2~substr(d,0,2) && substr($2,3,1)~/[0-9]/ {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$db_file" >> ./DataBaseT.${type} ;;
 			esac
 		    fi
 		else
 		    case $type in
-			crg)   awk -v d=${db_res} '$2~d {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
-			siz)   awk -v d=${db_res} '$2~d {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$DatabaseDIR"/DataBaseT_${ffID}.${type} >> ./DataBaseT.${type} ;;
+			crg)   awk -v d=${db_res} '$2~d {printf"%-6s%-9s%6.3f\n", $1,$2,$3}' "$db_file" >> ./DataBaseT.${type} ;;
+			siz)   awk -v d=${db_res} '$2~d {printf"%-6s%-6s%-6.3f\n", $1,$2,$3}' "$db_file" >> ./DataBaseT.${type} ;;
 		    esac
 		fi
 	    else
-		message E  "Residue identifier $db_res is not on Delphi Database_${ffID}.${type} Program will crash"
+		message E  "Residue identifier $db_res is not present in Delphi database file $db_file. Program will crash"
 	    fi
 	done
 	## Other option to avoid duplicate lines in database is using an associative array in awk##
@@ -514,64 +562,87 @@ make_delphi_DB()
     awk 'NF==3 {printf"%-6s%-9s%6.3f\n", $1,$2,0.000}' ./DataBaseT.crg > CRG_FILE
     
     # Generate charges database for Delphi
-    "$DelphiDir"/gen_charge.awk ${runname}.sites \
-		TMP_CpHMD_charge.top TMP_delphi.crg
+    "$DelphiDir"/gen_charge.awk ${runname}.sites 		TMP_CpHMD_charge.top TMP_delphi.crg
 
 }
 
 run_PBMC()
 {
         if [ $memb == 1 ]; then
-        # Multi-step centering procedure:
-        # 1- center with the tail of lipid 1
-            echo -e "Onetail\nProtein" | "$GroDIR" trjconv \
-                -f TMP_effective.gro -s TMP_CpHMD.tpr \
-                -o TMP_effective_aux1.gro -n TMP_CpHMD.ndx \
-                -center -pbc atom
-        # 
-        # 2- center with all tails of the monolayer that has lipid 1
-            echo -e "Monotail\nProtein" | "$GroDIR" trjconv \
-                -f TMP_effective_aux1.gro -s TMP_CpHMD.tpr \
-                -o TMP_effective_aux2.gro -n TMP_CpHMD.ndx \
-                -center -pbc atom
-        # 
-        # 3- center with all tails of all lipids in the system
-            echo -e "Bitail\nProtein" | "$GroDIR" trjconv \
-                -f TMP_effective_aux2.gro -s TMP_CpHMD.tpr \
-                -o TMP_effective_aux3.gro -n TMP_CpHMD.ndx \
-                -center -pbc atom
-        #
-        # 4- center with all lipids in the system
-            echo -e "Protein\nProtein" | "$GroDIR" trjconv \
-                -f TMP_effective_aux3.gro -s TMP_CpHMD.tpr \
-                -o TMP_${runname}.gro -n TMP_CpHMD.ndx \
-                -center -pbc atom
+	    #############################################################
+	    ## Membrane centering before PB/MC                         ##
+	    #############################################################
+	    # MembraneCenteringProtocol="tails" keeps the historical code
+	    # path and requires Onetail/Monotail/Bitail groups.
+	    # MembraneCenteringProtocol="central_atoms" uses the ASIC-ready
+	    # path and requires CentralAtom/CentralAtoms groups.
+	    if [[ ${MembraneCenteringProtocol:-tails} == "central_atoms" ]]; then
+	        # ASIC/large-channel centering procedure:
+	        # 1- center with one stable central atom/reference group
+                echo -e "CentralAtom\nProtein" | "$GroDIR" trjconv \
+                    -f TMP_effective.gro -s TMP_CpHMD.tpr \
+                    -o TMP_effective_aux1.gro -n TMP_CpHMD.ndx \
+                    -center -pbc atom
+	        # 2- center with several central atoms to keep the channel geometry stable
+                echo -e "CentralAtoms\nProtein" | "$GroDIR" trjconv \
+                    -f TMP_effective_aux1.gro -s TMP_CpHMD.tpr \
+                    -o TMP_${runname}.gro -n TMP_CpHMD.ndx \
+                    -center -pbc atom
+	    else
+	        # Historical membrane centering procedure:
+	        # 1- center with the tail of lipid 1
+                echo -e "Onetail\nProtein" | "$GroDIR" trjconv \
+                    -f TMP_effective.gro -s TMP_CpHMD.tpr \
+                    -o TMP_effective_aux1.gro -n TMP_CpHMD.ndx \
+                    -center -pbc atom
+	        # 2- center with all tails of the monolayer that has lipid 1
+                echo -e "Monotail\nProtein" | "$GroDIR" trjconv \
+                    -f TMP_effective_aux1.gro -s TMP_CpHMD.tpr \
+                    -o TMP_effective_aux2.gro -n TMP_CpHMD.ndx \
+                    -center -pbc atom
+	        # 3- center with all tails of all lipids in the system
+                echo -e "Bitail\nProtein" | "$GroDIR" trjconv \
+                    -f TMP_effective_aux2.gro -s TMP_CpHMD.tpr \
+                    -o TMP_effective_aux3.gro -n TMP_CpHMD.ndx \
+                    -center -pbc atom
+	        # 4- center with all lipids in the system
+                echo -e "Protein\nProtein" | "$GroDIR" trjconv \
+                    -f TMP_effective_aux3.gro -s TMP_CpHMD.tpr \
+                    -o TMP_${runname}.gro -n TMP_CpHMD.ndx \
+                    -center -pbc atom
+	    fi
 	    
 	    if [[ $PBdim -eq 0 ]]
 	    then
 		echo -e "Protein" | ${GroDIR} trjconv -f TMP_${runname}.gro -s TMP_CpHMD.tpr \
 				      -n TMP_CpHMD.ndx -o TMP_aux1.gro -pbc mol -quiet
 
-		rm -f TMP_auxcenter.dat
-		for i in `awk '{print $1}' ${runname}.sites` 
-		do
-		    awk -v i=$i ' substr($0,1,5)+0==i {print substr($0,21,24)}'  TMP_aux1.gro >> TMP_auxcenter.dat
-		done
-		
-		protx=`awk '{x+=$1;n++}END{print x/n}' TMP_auxcenter.dat`
-		proty=`awk '{x+=$2;n++}END{print x/n}' TMP_auxcenter.dat`
-		
-		halfsizex=`tail -n 1 TMP_aux1.gro |awk '{print $1/2}'`
-		halfsizey=`tail -n 1 TMP_aux1.gro |awk '{print $2/2}'`
-		
-		XCoor=`echo $protx $halfsizex | awk '{print $2-$1}'`
-		YCoor=`echo $proty $halfsizey | awk '{print $2-$1}'`
+		if [[ ${MembraneCenteringProtocol:-tails} == "central_atoms" ]]; then
+		    # The ASIC workflow only needs the molecule-whole representation
+		    # for PB/MC; the historical xy translation is deliberately skipped.
+		    cp -f TMP_aux1.gro TMP_${runname}.gro
+		else
+		    rm -f TMP_auxcenter.dat
+		    for i in `awk '{print $1}' ${runname}.sites` 
+		    do
+			awk -v i=$i ' substr($0,1,5)+0==i {print substr($0,21,24)}'  TMP_aux1.gro >> TMP_auxcenter.dat
+		    done
+		    
+		    protx=`awk '{x+=$1;n++}END{print x/n}' TMP_auxcenter.dat`
+		    proty=`awk '{x+=$2;n++}END{print x/n}' TMP_auxcenter.dat`
+		    
+		    halfsizex=`tail -n 1 TMP_aux1.gro |awk '{print $1/2}'`
+		    halfsizey=`tail -n 1 TMP_aux1.gro |awk '{print $2/2}'`
+		    
+		    XCoor=`echo $protx $halfsizex | awk '{print $2-$1}'`
+		    YCoor=`echo $proty $halfsizey | awk '{print $2-$1}'`
 
-		${GroDIR} editconf -f TMP_aux1.gro -o TMP_aux2.gro \
-		  -translate ${XCoor} ${YCoor} 0 -quiet
+		    ${GroDIR} editconf -f TMP_aux1.gro -o TMP_aux2.gro \
+		      -translate ${XCoor} ${YCoor} 0 -quiet
     
-		echo -e "Protein" | ${GroDIR} trjconv -f TMP_aux2.gro -s TMP_CpHMD.tpr \
+		    echo -e "Protein" | ${GroDIR} trjconv -f TMP_aux2.gro -s TMP_CpHMD.tpr \
 				      -n TMP_CpHMD.ndx -o TMP_${runname}.gro -pbc atom -quiet
+		fi
 
 	    fi
         else
@@ -594,11 +665,13 @@ run_PBMC()
 					   -n TMP_CpHMD.ndx -pbc mol -quiet
             fi
 
-	    ##DEBUG - store PDB trajectory format for later analysis
-            #
-            #"$GroDIR" editconf -f TMP_${runname}.gro \
-            #       -o TMP_aux_debug.pdb
-            #cat TMP_aux_debug.pdb >> ${blockname}_PQR.pdb
+	    ## DEBUG - store PDB trajectory format for later analysis.
+            ## Disabled by default; enable with export PBMCDebugPDB=1.
+            if [[ ${PBMCDebugPDB:-0} -eq 1 ]]; then
+                "$GroDIR" editconf -f TMP_${runname}.gro \
+                       -o TMP_aux_debug.pdb
+                cat TMP_aux_debug.pdb >> ${blockname}_PQR.pdb
+            fi
         
 	fi
     #
@@ -942,7 +1015,13 @@ run_relaxation ()
 
 data_append ()
 {
-    if [ $Cycle -eq 1 ]; then
+    # Each scheduler segment should be self-contained. On checkpoint restart,
+    # CPHMD_SEGMENT_START_CYCLE is set by CpHMD.sh to the first cycle of the
+    # current job, so that this function does not require previous TMP_CpHMD.xtc
+    # or TMP_CpHMD.edr files to be staged back in.
+    local segment_start="${CPHMD_SEGMENT_START_CYCLE:-1}"
+
+    if [ "$Cycle" -eq "$segment_start" ]; then
         InitTime=`echo $sim_time-$WriteTime | bc -l`
         initxtc=""
         initedr=""
@@ -983,6 +1062,91 @@ data_append ()
 	done
     fi
     rm -f TMP_aux* \#* TMP_effective*.log pull?.xvg
+}
+
+cphmd_write_checkpoint ()
+{
+    local finished_cycle="$1"
+    local segment_start="${CPHMD_SEGMENT_START_CYCLE:-1}"
+    local segment_base="${blockname}_cycles${segment_start}-${finished_cycle}"
+
+    # Keep only the most recent segment file for this job-start cycle in the
+    # parent scratch directory. In the intended wrapper this parent can be
+    # node-local scratch, avoiding repeated network writes.
+    rm -f ../${blockname}_cycles${segment_start}-*.{gro,top,tpr,edr,log,xtc,occ,mocc,ene,info} 2>/dev/null || true
+    rm -f ../${blockname}_cycles${segment_start}-*_pull{x,f}.xvg 2>/dev/null || true
+
+    # Compact restart state needed by the next job.
+    if [[ -f TMP_CpHMD.gro ]]; then cp -f TMP_CpHMD.gro "../${blockname}.restart.gro"; fi
+    if [[ -f TMP_CpHMD.top ]]; then cp -f TMP_CpHMD.top "../${blockname}.restart.top"; fi
+    if [[ -f TMP_CpHMD.tpr ]]; then cp -f TMP_CpHMD.tpr "../${blockname}.restart.tpr"; fi
+    if [[ -f "${runname}.sites" ]]; then cp -f "${runname}.sites" "../${runname}.sites"; fi
+    if [[ -f "${runname}-all.sites" ]]; then cp -f "${runname}-all.sites" "../${runname}-all.sites"; fi
+
+    # This job segment. These files may be large, but while the wrapper runs
+    # in scratch they are copied to persistent storage only when the job exits.
+    for e in gro tpr edr log xtc; do
+        if [[ -f "TMP_CpHMD.${e}" ]]; then
+            cp -f "TMP_CpHMD.${e}" "../${segment_base}.${e}"
+        fi
+    done
+
+    # Store the current topology for reproducibility of the segment.
+    if [[ -f "TMP_CpHMD.top" ]]; then
+        cp -f "TMP_CpHMD.top" "../${segment_base}.top"
+    fi
+
+    for e in occ mocc; do
+        if [[ -f "TMP_CpHMD.${e}" ]]; then
+            cp -f "TMP_CpHMD.${e}" "../${segment_base}.${e}"
+        fi
+    done
+
+    if [[ -f "${blockname}.info" ]]; then
+        cp -f "${blockname}.info" "../${segment_base}.info"
+    fi
+
+    if [[ -f Eb_calculation.dat ]]; then
+        cp -f Eb_calculation.dat "../${segment_base}.ene"
+    fi
+
+    if [[ -f TMP_CpHMD_pullx.xvg ]]; then
+        for e in x f ; do
+            if [[ -f "TMP_CpHMD_pull${e}.xvg" ]]; then
+                cp -f "TMP_CpHMD_pull${e}.xvg" "../${segment_base}_pull${e}.xvg"
+            fi
+        done
+    fi
+
+    # Reduced-titration diagnostic outputs.
+    if [[ -f "${runname}-reducedtitration.sites" ]]; then
+        cp -f "${runname}-reducedtitration.sites" "../${SysName}_RT-sites.dat"
+    fi
+    if [[ -f "${runname}.pocc_RT" ]]; then
+        cp -f "${runname}.pocc_RT" "../${SysName}_RT-debug.pocc_RT"
+    fi
+
+    # PLUMED/metadynamics outputs.
+    if [[ -n ${plumed:-} && "${plumed}" == "1" ]] ; then
+        if [[ -f "${colvar_name}" ]]; then
+            cp -f "${colvar_name}" ../
+        fi
+        if [[ -f "${hills}" && "${plumedtype}" != "grid" ]]; then
+            cp -f "${hills}" ../
+        fi
+        if [[ -f "${hills}_curr_seg" && "${plumedtype}" == "grid" ]]; then
+            cp -f "${hills}_curr_seg" "../${hills}"
+        fi
+        if [[ -f "${grid_name}" && "${plumedtype}" == "grid" ]]; then
+            cp -f "${grid_name}" ../
+        fi
+    fi
+
+    cat > "../${CPHMD_CHECKPOINT_FILE:-.cphmd_checkpoint_state}" <<EOF
+CPHMD_DONE_CYCLES=${finished_cycle}
+CPHMD_LAST_SEGMENT_START=${segment_start}
+CPHMD_LAST_SEGMENT_END=${finished_cycle}
+EOF
 }
 
 clean_up ()

@@ -21,7 +21,7 @@ export EffectiveSteps=10000 # Effective time in steps (real simulation time)
 # System definitions 
 #
 ######################
-export memb=0               # Flag for membrane systems. If active index must contain Onetail/Monotail/Bitail (default 0)
+export memb=0               # Flag for membrane systems. If active, index must contain the groups required by MembraneCenteringProtocol (default 0)
 export multiple_solutes=0   # Defines if there are multiple solutes that need to be treated to correct PBC (systems with 2 solutes interacting with each other need to set this to 1)
 export include_itp=0        # Correctly treats systems pbc when solute is included as itp. (default 0)
 #
@@ -41,6 +41,12 @@ export bndcon=4             # Potential at Boundary of large box (4 -> Coul)
 export maxc=0.01            # The convergence threshold values
 export pot=0.0              # Electrostatic potential (mV).
 export offset=2000          # Integer higher than residue number .gro 
+
+# Optional support for large/complex membrane systems.
+# Defaults preserve the historical behaviour used by existing inputs.
+export UseInputOffset=0          # 0: calculate offset automatically; 1: use the offset value above
+export MembraneCenteringProtocol="tails"  # tails: historical Onetail/Monotail/Bitail; central_atoms: CentralAtom/CentralAtoms
+export PBMCDebugPDB=0            # 1: append PB/MC input PDB snapshots to ${SysName}_CpHrun_PQR.pdb
 export seed=1234567         # Monte Carlo seed used in program petit.
 
 ##########################################
@@ -74,7 +80,7 @@ export hills="HILLS"          # name of the HILLS file
 ##########################################
 export TOPin="penta.top"    # The topology of your system
 export GROin="penta.gro"    # The initial (gro) file
-export NDXin="index.ndx"    # Index must contain "System/Protein/Solute/SOL" and "Onetail/Monotail/Bitail" for membrane
+export NDXin="index.ndx"    # Index must contain "System/Protein/Solute/SOL" and, for membranes, either Onetail/Monotail/Bitail or CentralAtom/CentralAtoms
 export PosRe=""             # File to use position restraints in production
 
 ####################################
