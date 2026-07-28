@@ -1,239 +1,711 @@
 Bootstrap: docker
-From: ubuntu:24.04
-Stage: Base-build
+From: nvidia/cuda:12.6.3-devel-ubuntu24.04
+Stage: build
 
-%help
-
-This container contains:
-  - The binaries from GROMACS 2024.3 compiled for CPU, CUDA, and for plumed support.
-  - All base code for CpHMD framework
-  - Delphi binary to run the PB step of the cycle with all base databases for GROMOS,CHARMM,AMBER
-  - petit 1.6.1 for the Monte Carlo protonation vector determination needed for the PB/MC step. 
-  - Force Fields GROMOS, CHARMM, AMBER with the basic titratable amino acids.
-  - tautomer files for the titratable amino acids (required for PB/MC cycle)
-  - Several container apps usefull for system build, file extraction, and analysis. 
-
-Usage:
-  singularity exec (--nv) --bind <your file directory> CpHMD.sif ./CpHMD-(basic|advanced).settings
-
-
-%post
-  
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -y
-  apt-get upgrade -y
-  apt-get install -y \
-  curl \
-  cmake \
-  fftw-dev \
-  gcc \
-  build-essential \
-  openmpi-common \
-  openmpi-bin \
-  libopenmpi-dev \
-  bc \
-  gawk && \
-  apt-get clean -y && \
-  rm -rf /var/lib/apt/lists/*
-
-  ln -s /CpHMD/scripts/CpHMD.sh /bin/CpHMD.sh
-
-  cd /plumed
-  ./configure
-  make -j 4
-  make install
-  
-  unset DEBIAN_FRONTEND
-
-%environment
-  export PATH=$PATH:/gromacs/bin/
-  export PATH=$PATH:/lib64/openmpi/bin/
-  export PATH=$PATH:/CpHMD/scripts/
-  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH 
-  export PATH=/usr/local/bin:$PATH  # Ensure custom installs are on PATH
-  export PLUMED_KERNEL=/usr/local/lib/libplumedKernel.so
+%labels
+    org.opencontainers.image.title CpHMD-container
+    cphmd.container.version 0.7.0
+    org.opencontainers.image.description Stochastic constant-pH molecular dynamics with CPU and NVIDIA CUDA GROMACS 2026.3
+    org.opencontainers.image.authors CpHMD-container developers
+    org.opencontainers.image.source https://github.com/mms-fcul/CpHMD-container
+    architecture amd64
+    ubuntu 24.04
+    gromacs 2026.3
+    cuda 12.6.3
+    simd AVX2_256
+    build-stage compiler
 
 %files
-  ### Pass base CpHMD programs and files inside the container ###
-  
-  ./CpHMD/ /CpHMD
-  ./DelphiTools/ /Delphi
-  ./FFs/ /FFs
-  ./STs /STs
-  ./Databases /Databases
-  ./tutorials /Tutorials
-  ./petit1.6.1 /programs/petit1.6.1
+    # GROMACS 2026 has a native PLUMED interface. The repository PLUMED source
+    # is compiled once and shared by the independent CPU and CUDA GROMACS builds.
+    ./plumed/ /src/plumed
 
-  ## Passing plumed reduced files for the build ##
-  ./plumed /plumed
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
 
-  ### Pass analysis scripts to be called in the app module ###
-  ./analysis/ /analysis
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        bash \
+        bc \
+        build-essential \
+        ca-certificates \
+        cmake \
+        curl \
+        file \
+        gawk \
+        git \
+        gzip \
+        libopenmpi-dev \
+        openmpi-bin \
+        perl \
+        python3 \
+        tar
+    rm -rf /var/lib/apt/lists/*
 
-  ### Pass GROMACS binaries and library dependencies inside the container ###
-  
-  /home/noliveira/Programs/plumed/gromacs-2024.3-nvidia-plumed/ /gromacs
+    # Remove host-side build products that may exist in the repository source
+    # tree. A failure here is harmless when the source tree is already clean.
+    cd /src/plumed
+    make distclean >/dev/null 2>&1 || true
 
-  ## Get libraries for GROMACS binaries ##
-  /usr/lib/x86_64-linux-gnu/libcufft.so.10.9.0.58 /usr/lib/x86_64-linux-gnu/libcufft.so.10
-  /usr/lib/x86_64-linux-gnu/libcufft.so.11.0.1.95 /usr/lib/x86_64-linux-gnu/libcufft.so.11
-  /usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0 /usr/lib/x86_64-linux-gnu/libgomp.so.1
+    ./configure --prefix=/opt/plumed --enable-shared
+    make -j"$(nproc)"
+    make install
 
-  #### libs for plumed ###
-  /usr/local/lib/libplumedKernel.so /usr/local/lib/libplumedKernel.so
-  /usr/local/lib/libmpi.so.20 /usr/local/lib/libmpi.so.20
-  /usr/local/lib/libopen-rte.so.20 /usr/local/lib/libopen-rte.so.20
-  /usr/local/lib/libopen-pal.so.20 /usr/local/lib/libopen-pal.so.20
+    # Download and verify the official GROMACS 2026.3 source once.
+    mkdir -p /src/gromacs
+    cd /src/gromacs
+    curl -fL --retry 3 \
+        -o gromacs-2026.3.tar.gz \
+        https://ftp.gromacs.org/gromacs/gromacs-2026.3.tar.gz
+    echo '7987af0c6ab939ab6e639f32d0dd260f  gromacs-2026.3.tar.gz' | md5sum -c -
+    tar -xzf gromacs-2026.3.tar.gz
+
+    # CPU-only build. AVX2_256 is selected explicitly so the released x86-64
+    # image does not accidentally require AVX-512 from the build host.
+    cmake \
+        -S /src/gromacs/gromacs-2026.3 \
+        -B /build/gromacs-2026.3 \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/opt/gromacs/gromacs-2026.3 \
+        -DGMX_GPU=OFF \
+        -DGMX_SIMD=AVX2_256 \
+        -DGMX_OPENMP=ON \
+        -DGMX_THREAD_MPI=ON \
+        -DGMX_MPI=OFF \
+        -DGMX_DOUBLE=OFF \
+        -DGMX_BUILD_OWN_FFTW=ON \
+        -DGMX_USE_PLUMED=ON \
+        -DCMAKE_PREFIX_PATH=/opt/plumed
+
+    cmake --build /build/gromacs-2026.3 --parallel "$(nproc)"
+    cmake --install /build/gromacs-2026.3
+
+    # NVIDIA CUDA build. A separate installation prefix is required because a
+    # GROMACS build can contain only one GPU backend and both builds export a
+    # libgromacs library with the same SONAME.
+    cmake \
+        -S /src/gromacs/gromacs-2026.3 \
+        -B /build/gromacs-2026.3-GPU \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/opt/gromacs/gromacs-2026.3-GPU \
+        -DCUDAToolkit_ROOT=/usr/local/cuda \
+        -DGMX_GPU=CUDA \
+        -DGMX_SIMD=AVX2_256 \
+        -DGMX_OPENMP=ON \
+        -DGMX_THREAD_MPI=ON \
+        -DGMX_MPI=OFF \
+        -DGMX_DOUBLE=OFF \
+        -DGMX_BUILD_OWN_FFTW=ON \
+        -DGMX_USE_PLUMED=ON \
+        -DCMAKE_PREFIX_PATH=/opt/plumed
+
+    cmake --build /build/gromacs-2026.3-GPU --parallel "$(nproc)"
+    cmake --install /build/gromacs-2026.3-GPU
+
+    /opt/gromacs/gromacs-2026.3/bin/gmx --version \
+        | grep -q 'GROMACS version:.*2026.3'
+    /opt/gromacs/gromacs-2026.3/bin/gmx --version \
+        | grep -q 'GPU support:.*disabled'
+    /opt/gromacs/gromacs-2026.3-GPU/bin/gmx --version \
+        | grep -q 'GROMACS version:.*2026.3'
+    /opt/gromacs/gromacs-2026.3-GPU/bin/gmx --version \
+        | grep -q 'GPU support:.*CUDA'
 
 
-  #############################
-  ## create protonation app
-  #############################
+Bootstrap: docker
+From: nvidia/cuda:12.6.3-runtime-ubuntu24.04
+Stage: final
+
+%labels
+    org.opencontainers.image.title CpHMD-container
+    cphmd.container.version 0.7.0
+    org.opencontainers.image.description Stochastic constant-pH molecular dynamics with CPU and NVIDIA CUDA GROMACS 2026.3
+    org.opencontainers.image.authors CpHMD-container developers
+    org.opencontainers.image.source https://github.com/mms-fcul/CpHMD-container
+    architecture amd64
+    ubuntu 24.04
+    gromacs 2026.3
+    cuda 12.6.3
+    simd AVX2_256
+    builds CPU-and-CUDA
+    cphmd-output-contract validated-segment-restart
+
+%files from build
+    /opt/gromacs /gromacs
+    /opt/plumed /opt/plumed
+
+%files
+    ./CpHMD/ /CpHMD
+    ./DelphiTools/ /Delphi
+    ./FFs/ /FFs
+    ./STs/ /STs
+    ./Databases/ /Databases
+    ./tutorials/ /Tutorials
+    ./template/ /Templates
+    ./petit1.6.1/ /programs/petit1.6.1
+    ./analysis/ /analysis
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        bash \
+        bc \
+        ca-certificates \
+        gawk \
+        gzip \
+        libgfortran5 \
+        libgomp1 \
+        libstdc++6 \
+        openmpi-bin \
+        python3 \
+        rsync
+    rm -rf /var/lib/apt/lists/*
+
+    ln -sf /CpHMD/scripts/CpHMD.sh /usr/local/bin/CpHMD.sh
+
+    # Both installations export libgromacs with the same SONAME. Each launcher
+    # therefore prepends only the matching installation's library directories.
+    mkdir -p /gromacs/bin
+
+    cat > /gromacs/bin/gmx <<'EOF_CPU'
+#!/bin/bash
+set -e
+root="/gromacs/gromacs-2026.3"
+export LD_LIBRARY_PATH="${root}/lib:${root}/lib64:/opt/plumed/lib:/opt/plumed/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+exec "${root}/bin/gmx" "$@"
+EOF_CPU
+
+    cat > /gromacs/bin/gmx-gpu <<'EOF_GPU'
+#!/bin/bash
+set -e
+root="/gromacs/gromacs-2026.3-GPU"
+export LD_LIBRARY_PATH="${root}/lib:${root}/lib64:/opt/plumed/lib:/opt/plumed/lib64:/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+exec "${root}/bin/gmx" "$@"
+EOF_GPU
+
+    chmod 0755 /gromacs/bin/gmx /gromacs/bin/gmx-gpu
+    ln -sf /gromacs/bin/gmx /usr/local/bin/gmx
+    ln -sf /gromacs/bin/gmx-gpu /usr/local/bin/gmx-gpu
+
+    # Record the supported app interface inside the image for diagnostics.
+    mkdir -p /etc/cphmd
+    cat > /etc/cphmd/apps.txt <<'EOF_APPS'
+add-mol-db
+extract-databases
+extract-force-fields
+extract-protonation-script
+extract-tautomers
+get-settings
+get-tutorials
+make-sites
+pdb2cphmd
+protonation
+EOF_APPS
+
+    ldconfig
+
+%environment
+    export PATH="/gromacs/bin:/opt/plumed/bin:/CpHMD/scripts:/usr/local/bin:/usr/bin:/bin:${PATH}"
+    export LD_LIBRARY_PATH="/opt/plumed/lib:/opt/plumed/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+    export PLUMED_KERNEL="/opt/plumed/lib/libplumedKernel.so"
+    export GMX_CPU_BIN="/gromacs/bin/gmx"
+    export GMX_CUDA_BIN="/gromacs/bin/gmx-gpu"
+    export GMXLIB="/FFs"
+    export GMX_MAXBACKUP=-1
+
+%runscript
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: apptainer run IMAGE.sif CpHMD.settings" >&2
+        echo "For a CUDA run, add --nv and set GPU=1 in the settings file." >&2
+        exit 2
+    fi
+    exec /CpHMD/scripts/CpHMD.sh "$1"
+
+%test
+    set -eu
+
+    test_log="$(mktemp "${TMPDIR:-/tmp}/cphmd-image-test.XXXXXX")"
+    trap 'rm -f "${test_log}"' EXIT HUP INT TERM
+
+    require_output () {
+        test_label="$1"
+        test_pattern="$2"
+        shift 2
+
+        printf '[TEST] %s\n' "${test_label}"
+        if "$@" >"${test_log}" 2>&1; then
+            :
+        else
+            test_rc=$?
+            printf '[FAIL] %s: command exited non-zero\n' "${test_label}" >&2
+            cat "${test_log}" >&2 || true
+            exit "${test_rc}"
+        fi
+
+        if ! grep -Eq -- "${test_pattern}" "${test_log}"; then
+            printf '[FAIL] %s: expected pattern not found: %s\n' \
+                "${test_label}" "${test_pattern}" >&2
+            cat "${test_log}" >&2 || true
+            exit 1
+        fi
+
+        printf '[PASS] %s\n' "${test_label}"
+    }
+
+    require_command () {
+        test_label="$1"
+        shift
+
+        printf '[TEST] %s\n' "${test_label}"
+        if "$@" >"${test_log}" 2>&1; then
+            :
+        else
+            test_rc=$?
+            printf '[FAIL] %s: command exited non-zero\n' "${test_label}" >&2
+            cat "${test_log}" >&2 || true
+            exit "${test_rc}"
+        fi
+        printf '[PASS] %s\n' "${test_label}"
+    }
+
+    require_nonempty_file () {
+        test_label="$1"
+        test_path="$2"
+        printf '[TEST] %s\n' "${test_label}"
+        if [ ! -s "${test_path}" ]; then
+            printf '[FAIL] %s: missing or empty file: %s\n' \
+                "${test_label}" "${test_path}" >&2
+            exit 1
+        fi
+        printf '[PASS] %s\n' "${test_label}"
+    }
+
+    require_executable () {
+        test_label="$1"
+        test_path="$2"
+        printf '[TEST] %s\n' "${test_label}"
+        if [ ! -x "${test_path}" ]; then
+            printf '[FAIL] %s: missing or non-executable file: %s\n' \
+                "${test_label}" "${test_path}" >&2
+            ls -l "${test_path}" >&2 2>/dev/null || true
+            exit 1
+        fi
+        printf '[PASS] %s\n' "${test_label}"
+    }
+
+    require_directory () {
+        test_label="$1"
+        test_path="$2"
+        printf '[TEST] %s\n' "${test_label}"
+        if [ ! -d "${test_path}" ]; then
+            printf '[FAIL] %s: missing directory: %s\n' \
+                "${test_label}" "${test_path}" >&2
+            exit 1
+        fi
+        printf '[PASS] %s\n' "${test_label}"
+    }
+
+    require_libgromacs_root () {
+        test_label="$1"
+        executable="$2"
+        expected_root="$3"
+        library_path="${expected_root}/lib:${expected_root}/lib64:/opt/plumed/lib:/opt/plumed/lib64"
+
+        case "${expected_root}" in
+            *-GPU)
+                library_path="${library_path}:/usr/local/cuda/lib64"
+                ;;
+        esac
+
+        printf '[TEST] %s\n' "${test_label}"
+        if env LD_LIBRARY_PATH="${library_path}" ldd "${executable}" >"${test_log}" 2>&1; then
+            :
+        else
+            test_rc=$?
+            printf '[FAIL] %s: ldd exited non-zero\n' "${test_label}" >&2
+            cat "${test_log}" >&2 || true
+            exit "${test_rc}"
+        fi
+
+        lib_path="$(awk '$1 ~ /^libgromacs([.]so)?/ { print $3; exit }' "${test_log}")"
+        if [ -z "${lib_path}" ]; then
+            printf '[FAIL] %s: libgromacs was not found in ldd output\n' "${test_label}" >&2
+            cat "${test_log}" >&2 || true
+            exit 1
+        fi
+
+        canonical_path="$(readlink -f "${lib_path}" 2>/dev/null || printf '%s\n' "${lib_path}")"
+        printf '       resolved libgromacs: %s\n' "${canonical_path}"
+
+        case "${canonical_path}" in
+            "${expected_root}"/lib/*|"${expected_root}"/lib64/*)
+                ;;
+            *)
+                printf '[FAIL] %s: expected libgromacs below %s, observed %s\n' \
+                    "${test_label}" "${expected_root}" "${canonical_path}" >&2
+                cat "${test_log}" >&2 || true
+                exit 1
+                ;;
+        esac
+
+        printf '[PASS] %s\n' "${test_label}"
+    }
+
+    cpu=/gromacs/bin/gmx
+    gpu=/gromacs/bin/gmx-gpu
+
+    require_output \
+        'CPU GROMACS version' \
+        'GROMACS version:[[:space:]]*2026\.3' \
+        "${cpu}" --version
+    require_output \
+        'CPU build has GPU support disabled' \
+        'GPU support:[[:space:]]*disabled' \
+        "${cpu}" --version
+    require_output \
+        'CPU build uses AVX2_256' \
+        'SIMD instructions:[[:space:]]*AVX2_256' \
+        "${cpu}" --version
+
+    require_output \
+        'CUDA GROMACS version' \
+        'GROMACS version:[[:space:]]*2026\.3' \
+        "${gpu}" --version
+    require_output \
+        'CUDA build reports CUDA support' \
+        'GPU support:[[:space:]]*CUDA' \
+        "${gpu}" --version
+    require_output \
+        'CUDA build uses AVX2_256' \
+        'SIMD instructions:[[:space:]]*AVX2_256' \
+        "${gpu}" --version
+
+    require_output \
+        'CPU mdrun exposes PLUMED option' \
+        '-plumed' \
+        "${cpu}" mdrun -h
+    require_output \
+        'CUDA mdrun exposes PLUMED option' \
+        '-plumed' \
+        "${gpu}" mdrun -h
+
+    require_libgromacs_root \
+        'CPU executable resolves CPU libgromacs' \
+        /gromacs/gromacs-2026.3/bin/gmx \
+        /gromacs/gromacs-2026.3
+    require_libgromacs_root \
+        'CUDA executable resolves CUDA libgromacs' \
+        /gromacs/gromacs-2026.3-GPU/bin/gmx \
+        /gromacs/gromacs-2026.3-GPU
+
+    require_command 'CpHMD.sh syntax' \
+        bash -n /CpHMD/scripts/CpHMD.sh
+    require_command 'functions.sh syntax' \
+        bash -n /CpHMD/scripts/functions.sh
+    require_command 'extract_protonation.sh syntax' \
+        bash -n /analysis/extract_protonation.sh
+    require_command 'prepare-pdb.sh syntax' \
+        bash -n /analysis/prepare-pdb.sh
+    require_command 'add-mol-database.sh syntax' \
+        bash -n /analysis/add-mol-database.sh
+
+    require_nonempty_file 'default CpHMD settings' \
+        /CpHMD/CpHMD-default.settings
+    require_nonempty_file 'basic settings template' \
+        /Templates/CpHMD-basic.settings
+    require_nonempty_file 'advanced settings template' \
+        /Templates/CpHMD-advanced.settings
+    require_executable 'PETIT executable' \
+        /programs/petit1.6.1/petit
+    require_executable 'DelPhi executable' \
+        /Delphi/delphiT
+    require_nonempty_file 'GROMOS charge database' \
+        /Databases/DataBaseT_G54a7pH.crg
+    require_nonempty_file 'CHARMM charge database' \
+        /Databases/DataBaseT_CHARMM36pH.crg
+    require_nonempty_file 'AMBER charge database' \
+        /Databases/DataBaseT_Amber14SBpH.crg
+    require_directory 'GROMOS tautomer directory' \
+        /STs/St-G54a7pH
+    require_directory 'CHARMM tautomer directory' \
+        /STs/St-CHARMM36pH
+    require_directory 'AMBER tautomer directory' \
+        /STs/St-Amber14SBpH
+    require_nonempty_file 'app registry' \
+        /etc/cphmd/apps.txt
+    require_command 'gzip availability' gzip --version
+
+    printf '[PASS] all embedded image tests completed successfully\n'
+
+%help
+    CpHMD-container v0.7.0 for x86-64/AVX2 systems.
+
+    Included molecular-dynamics engines:
+
+      CPU-only GROMACS 2026.3:
+        /gromacs/bin/gmx
+
+      NVIDIA CUDA GROMACS 2026.3 (CUDA 12.6.3 runtime):
+        /gromacs/bin/gmx-gpu
+
+    Plain `gmx` selects the CPU build. CpHMD selects the explicit CPU or CUDA
+    launcher using GPU=0 or GPU=1 in the settings file.
+
+    CPU execution:
+      apptainer run IMAGE.sif CpHMD.settings
+
+    NVIDIA CUDA execution:
+      apptainer run --nv IMAGE.sif CpHMD.settings
+
+    List the bundled helper applications:
+      apptainer inspect --list-apps IMAGE.sif
+
+    Show application help:
+      apptainer inspect --app APP --helpfile IMAGE.sif
+
+    Run an application:
+      apptainer run --app APP IMAGE.sif [arguments]
+
+    The CUDA build requires a compatible NVIDIA driver on the host. Previous
+    release images remain appropriate for continuing calculations that must
+    retain their original software environment.
+
+
 %apprun protonation
-     ### Commands to run protonation extraction
-     /analysis/extract_protonation.sh $1 $2
+    if [ "$#" -ne 2 ]; then
+        echo "Usage: apptainer run --app protonation IMAGE.sif FILE.occ FILE.sites" >&2
+        exit 2
+    fi
+    exec /bin/bash /analysis/extract_protonation.sh "$1" "$2"
 
-     
 %apphelp protonation
-     Protonation is a command from the CpHMD container that treats the
-     simulation .occ file. This file contains inside the information of the tautomer used for each
-     simulation segment (commonly 20 ps) and can be interpreted as:
-     - Lines - Each line is a step of PB/MC cycle which normally is 20 ps.
-     - collumns - Tautomer choosed for that specific time in each corresponding residue of the .sites
-     file.
-     The first column is the first titratable residue in the .sites, and so on.
-     This container app is able to convert the basic tautomers of CpHMD into protonation, allowing
-     for the interpretation of protonation states on the simulation.
-     USAGE: singularity run --app protonation CpHMD.sif <.occ file> <.sites file>
+    Convert a CpHMD tautomer-state OCC file into per-residue protonation-state
+    time series.
 
-  ######################################
-  ## Extract protonation treatment file
-  ######################################
+    Usage:
+      apptainer run --app protonation IMAGE.sif FILE.occ FILE.sites
+
+
 %apprun extract-protonation-script
-     cp -rf /analysis/extract_protonation.sh ./
+    destination="./extract_protonation.sh"
+    if [ -e "${destination}" ]; then
+        echo "Refusing to overwrite ${destination}" >&2
+        exit 1
+    fi
+    cp -a /analysis/extract_protonation.sh "${destination}"
 
 %apphelp extract-protonation-script
-     This app copies the script that treats the protonation from the container
-     into the home directory to allow for user manipulation of the script.
+    Copy the bundled protonation-analysis shell script into the current
+    directory without overwriting an existing file.
 
-  ######################################
-  ## Extract FF files
-  ######################################
 
 %apprun extract-force-fields
-     case $1 in
-     G54a7pH|G54a7|GROMOS|Gromos|gromos)\
-          cp -rf  /FFs/G54a7pH.ff/ ./G54a7pH.ff/ ;;
-     CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm)\
-          cp -rf /FFs/CHARMM36pH.ff/ ./CHARMM36pH.ff/ ;;
-     Amber14SBpH|Amber14SB|AMBER|Amber|amber)\
-          cp -rf /FFs/Amber14SBpH.ff/ ./Amber14SBpH.ff/ ;;
-     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
-     esac
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: apptainer run --app extract-force-fields IMAGE.sif GROMOS|CHARMM|AMBER" >&2
+        exit 2
+    fi
 
-%appenv extract-force-fields
-    SOFTWARE=extract-force-fields
-    export SOFTWARE
+    case "$1" in
+        G54a7pH|G54a7|GROMOS|Gromos|gromos)
+            source=/FFs/G54a7pH.ff
+            destination=./G54a7pH.ff
+            ;;
+        CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm)
+            source=/FFs/CHARMM36pH.ff
+            destination=./CHARMM36pH.ff
+            ;;
+        Amber14SBpH|Amber14SB|AMBER|Amber|amber)
+            source=/FFs/Amber14SBpH.ff
+            destination=./Amber14SBpH.ff
+            ;;
+        *)
+            echo "Invalid force field. Choose GROMOS, CHARMM or AMBER." >&2
+            exit 2
+            ;;
+    esac
 
+    if [ -e "${destination}" ]; then
+        echo "Refusing to overwrite ${destination}" >&2
+        exit 1
+    fi
+    cp -a "${source}" "${destination}"
 
 %apphelp extract-force-fields
-     This app copies the specified force fields within the container to the home directory.
+    Copy one complete CpHMD-compatible force-field directory into the current
+    directory without overwriting existing data.
 
+    Usage:
+      apptainer run --app extract-force-fields IMAGE.sif GROMOS|CHARMM|AMBER
 
-  ######################################
-  ## Extract protonation treatment file
-  ######################################
 
 %apprun extract-tautomers
-     case $1 in
-     G54a7pH|G54a7|GROMOS|Gromos|gromos)\
-          cp -rf /STs/St-G54a7pH.ff/ ./STs-G54a7pH.ff/ ;;
-     CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm)\
-          cp -rf /STs/St-CHARMM36pH.ff/ ./STs-CHARMM36pH.ff/ ;;
-     Amber14SBpH|Amber14SB|AMBER|Amber|amber)\
-          cp -rf /STs/St-Amber14SBpH.ff/ ./STs-Amber14SBpH.ff/ ;;
-     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
-     esac
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: apptainer run --app extract-tautomers IMAGE.sif GROMOS|CHARMM|AMBER" >&2
+        exit 2
+    fi
 
-%applabels extract-tautomers
-     get-files tautomer
+    case "$1" in
+        G54a7pH|G54a7|GROMOS|Gromos|gromos)
+            source=/STs/St-G54a7pH
+            destination=./St-G54a7pH
+            ;;
+        CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm)
+            source=/STs/St-CHARMM36pH
+            destination=./St-CHARMM36pH
+            ;;
+        Amber14SBpH|Amber14SB|AMBER|Amber|amber)
+            source=/STs/St-Amber14SBpH
+            destination=./St-Amber14SBpH
+            ;;
+        *)
+            echo "Invalid force field. Choose GROMOS, CHARMM or AMBER." >&2
+            exit 2
+            ;;
+    esac
 
-%appenv extract-tautomers
-    SOFTWARE=extract-tautomers
-    export SOFTWARE
+    if [ -e "${destination}" ]; then
+        echo "Refusing to overwrite ${destination}" >&2
+        exit 1
+    fi
+    cp -a "${source}" "${destination}"
 
 %apphelp extract-tautomers
-     This app copies the tautomer files within the container to the home directory. Should be used with 1 argument which is the forcefield selected. (G54a7pH.ff,CHARMM36pH,Amber14SBpH.ff)
+    Copy the tautomer-state directory for one supported force field into the
+    current directory without overwriting existing data.
 
+    Usage:
+      apptainer run --app extract-tautomers IMAGE.sif GROMOS|CHARMM|AMBER
 
-  ########################################################
-  ## Extract delphi databases for molecule adition  ##
-  ########################################################
 
 %apprun extract-databases
-     mkdir -p ./Databases	
-     case $1 in
-     G54a7pH|G54a7|GROMOS|Gromos|gromos|G54a7pH)\
-          cp -rf /Databases/DataBaseT_G54a7pH.* ./Databases/ ;;
-     CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm|CHARMM36pH)\
-          cp -rf /Databases/DataBaseT_CHARMM36pH.ff/ ./Databases/ ;;
-     Amber14SBpH|Amber14SB|AMBER|Amber|amber|Amber14SBpH)\
-          cp -rf /Databases/DataBaseT_Amber14SBpH.ff/ ./Databases/ ;;
-     ""|*) echo "Missing or invalid force field to extract the tautomers. Please give one of the following GROMOS, CHARMM or AMBER. " ;;
-     esac
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: apptainer run --app extract-databases IMAGE.sif GROMOS|CHARMM|AMBER" >&2
+        exit 2
+    fi
+
+    case "$1" in
+        G54a7pH|G54a7|GROMOS|Gromos|gromos)
+            basename=DataBaseT_G54a7pH
+            ;;
+        CHARMM36|CHARMM36pH|CHARMM|Charmm|charmm)
+            basename=DataBaseT_CHARMM36pH
+            ;;
+        Amber14SBpH|Amber14SB|AMBER|Amber|amber)
+            basename=DataBaseT_Amber14SBpH
+            ;;
+        *)
+            echo "Invalid force field. Choose GROMOS, CHARMM or AMBER." >&2
+            exit 2
+            ;;
+    esac
+
+    mkdir -p ./Databases
+    for extension in crg siz; do
+        source="/Databases/${basename}.${extension}"
+        destination="./Databases/${basename}.${extension}"
+        if [ -e "${destination}" ]; then
+            echo "Refusing to overwrite ${destination}" >&2
+            exit 1
+        fi
+        cp -a "${source}" "${destination}"
+    done
 
 %apphelp extract-databases
-     This app makes a .sites file with the inputed files, showing which residues are identified to titrate.
+    Copy the DelPhi charge and size databases for one supported force field
+    into ./Databases without overwriting existing files.
 
-  ########################################################
-  ## Extract tutorial files   ##
-  ########################################################
+    Usage:
+      apptainer run --app extract-databases IMAGE.sif GROMOS|CHARMM|AMBER
+
 
 %apprun get-tutorials
-      cp -rf /Tutorials ./tutorials/
+    destination=./tutorials
+    if [ -e "${destination}" ]; then
+        echo "Refusing to overwrite ${destination}" >&2
+        exit 1
+    fi
+    cp -a /Tutorials "${destination}"
 
 %apphelp get-tutorials
-     This app copies  the current tutorial files to follow from the git-hub wiki. 
+    Copy the bundled tutorial directory into ./tutorials without overwriting an
+    existing directory.
 
-  ########################################################
-  ## Extract settings files   ##
-  ########################################################
 
 %apprun get-settings
-      cp -rf /Tutorials/CpHMD-$1.settings ./
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: apptainer run --app get-settings IMAGE.sif basic|advanced" >&2
+        exit 2
+    fi
 
-%apphelp get-tutorials
-     This app copies  a .settings file to the folder.
+    case "$1" in
+        basic|advanced)
+            source="/Templates/CpHMD-$1.settings"
+            destination="./CpHMD-$1.settings"
+            ;;
+        *)
+            echo "Invalid settings type. Choose basic or advanced." >&2
+            exit 2
+            ;;
+    esac
 
-  ######################################
-  ## Prepare the pdb for minimization 
-  ######################################
+    if [ -e "${destination}" ]; then
+        echo "Refusing to overwrite ${destination}" >&2
+        exit 1
+    fi
+    cp -a "${source}" "${destination}"
+
+%apphelp get-settings
+    Copy the current basic or advanced CpHMD settings template into the current
+    directory without overwriting an existing file.
+
+    Usage:
+      apptainer run --app get-settings IMAGE.sif basic|advanced
+
 
 %apprun pdb2cphmd
-      /analysis/prepare-pdb.sh $@ 
+    exec /bin/bash /analysis/prepare-pdb.sh "$@"
 
-%apphelp extract-tautomers
-     This app copies the tautomer files within the container to the home directory
+%apphelp pdb2cphmd
+    Convert conventional titratable-residue names in a PDB file to the CpHMD
+    naming scheme and copy the selected force-field support files.
 
-  ########################################################
-  ## Make_sites test script to check titrating residues ##
-  ########################################################
+    Usage:
+      apptainer run --app pdb2cphmd IMAGE.sif -p INPUT.pdb -f FORCE_FIELD -r RESIDUES...
+
+    Use -h for the script's complete option help.
+
 
 %apprun make-sites
-      /CpHMD/scripts/make_sites $@  
+    exec /bin/bash /CpHMD/scripts/make_sites "$@"
 
 %apphelp make-sites
-     This app makes a .sites file with the inputed files, showing which residues are identified to titrate.
+    Generate and inspect a CpHMD sites definition from a settings file and a
+    compatible structure file.
 
-  ######################################
-  ## Prepare the pdb for minimization 
-  ######################################
+    Usage:
+      apptainer run --app make-sites IMAGE.sif CpHMD.settings STRUCTURE.pdb
+
 
 %apprun add-mol-db
-      /analysis/add-mol-database.sh $@
-      echo "Please do not forget to extract the entire databases from the container and adding your new molecules to them."
-      echo
-      echo "Your CpHMD.settings should have the export Databases=<your updated database> location to use your custom DB."
-      
+    /bin/bash /analysis/add-mol-database.sh "$@"
+    rc=$?
+    if [ "${rc}" -ne 0 ]; then
+        exit "${rc}"
+    fi
+
+    echo
+    echo "The generated charge and radius records must be reviewed and added to"
+    echo "copies of the complete DelPhi databases before production use."
+
 %apphelp add-mol-db
-     This app copies the tautomer files within the container to the home directory
+    Generate DelPhi charge and radius records for custom molecule types from an
+    ITP file and a supported or custom force-field nonbonded parameter file.
+
+    Usage:
+      apptainer run --app add-mol-db IMAGE.sif -f FORCE_FIELD -i MOLECULE.itp -r MOLECULE_NAMES...
+
+    Use -h for the script's complete option help.
