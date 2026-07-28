@@ -1,0 +1,17 @@
+# Built container images and rendered definition files
+build/artifacts/*
+!build/artifacts/.gitkeep
+
+# Test trajectories, energies, checkpoints, and logs
+runs/*
+!runs/.gitkeep
+
+# Keep small textual summaries selectively, but exclude binary results
+results/*.sif
+results/*.xtc
+results/*.edr
+results/*.tpr
+results/*.tpr.gz
+
+# Candidate files destined for the non-Git ASICs project
+project-candidates/*
