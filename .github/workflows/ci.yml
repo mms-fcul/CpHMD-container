@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run static checks
+        run: ./tests/static_checks.sh
+
+      - name: Check databases
+        run: ./tests/check_databases.sh
+
+      - name: Check reduced titration logic
+        run: ./tests/check_reduced_titration_logic.sh
+
+      - name: Check ASIC settings
+        run: ./tests/check_asic_settings.sh

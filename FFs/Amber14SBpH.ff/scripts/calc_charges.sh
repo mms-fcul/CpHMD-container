@@ -5,7 +5,6 @@
 #  for the PypKa MD program for the titrating termini (this will give us the
 #  value of the charged termini)
 
-Dir=`pwd` #/home/jsequeira/Documents/TMP/scripts_to_edit/Amber14SBpH.ff/scripts
 
 #N-ter
 #get just the lines we want to calculate the averages of

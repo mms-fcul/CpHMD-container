@@ -1,0 +1,114 @@
+#!/bin/bash
+#
+# Generic scheduler variables for template/slurm/generate_CpHMD_slurm.sh
+#
+# Copy and edit this file, then generate a SLURM script with:
+#
+#   ./generate_CpHMD_slurm.sh ./CpHMD-slurm.settings
+#
+# The generator reads GPU, nCPU and SysName from the CpHMD settings file.
+# It generates only by default. Submission is an explicit separate action.
+
+# Required persistent paths --------------------------------------------------
+
+# Persistent simulation directory visible from submission and compute nodes.
+# It must contain 01_CpHMD.settings unless CPHMD_SETTINGS_FILE is set below.
+CPHMD_RUN_DIR=""
+
+# Empty means: ${CPHMD_RUN_DIR}/01_CpHMD.settings
+CPHMD_SETTINGS_FILE=""
+
+# Released CpHMD-container SIF.
+CPHMD_IMAGE=""
+
+# SLURM allocation -----------------------------------------------------------
+
+# Leave empty when the cluster does not require --account.
+CPHMD_ACCOUNT=""
+
+# The generator selects one partition from GPU=0 or GPU=1 in the CpHMD settings.
+CPHMD_CPU_PARTITION=""
+CPHMD_GPU_PARTITION=""
+
+# Empty means use export nCPU=... from the CpHMD settings file.
+CPHMD_CPUS=""
+
+CPHMD_MEMORY="4G"
+CPHMD_WALLTIME="24:00:00"
+
+# SLURM sends TERM this many seconds before its hard limit.
+CPHMD_SIGNAL_SECONDS="900"
+
+# Must exceed one complete CpHMD cycle plus synchronization time, and must be
+# greater than CPHMD_SIGNAL_SECONDS.
+CPHMD_STOP_BUFFER_SECONDS="4500"
+
+# Optional exact guard in seconds. Leave empty in production. Mainly for tests.
+CPHMD_MAX_SECONDS_OVERRIDE=""
+
+# Maximum number of automatic clean-boundary resubmissions.
+CPHMD_MAX_RESUB="500"
+
+# Extra directives are written exactly as "#SBATCH <entry>".
+# Entries must begin with --.
+CPHMD_COMMON_SBATCH_DIRECTIVES=(
+)
+
+CPHMD_CPU_SBATCH_DIRECTIVES=(
+)
+
+# Many clusters require an explicit GPU request, for example:
+#   "--gres=gpu:1"
+# or:
+#   "--gpus=1"
+CPHMD_GPU_SBATCH_DIRECTIVES=(
+)
+
+# Scratch and generated-file locations --------------------------------------
+
+# Empty means use ${TMPDIR:-/tmp} on the allocated node.
+CPHMD_SCRATCH_ROOT=""
+
+# One of: require-local, prefer-local, allow-network.
+CPHMD_SCRATCH_POLICY="prefer-local"
+
+# Empty values use:
+#   job name:       SysName from the CpHMD settings file
+#   SLURM folder:   ${CPHMD_RUN_DIR}/slurm_files
+#   generated file: <SLURM folder>/<job name>.slurm
+CPHMD_JOB_NAME=""
+CPHMD_SLURM_DIR=""
+CPHMD_SLURM_FILE=""
+
+# Container mounts and environment ------------------------------------------
+
+# Additional binds required by paths in 01_CpHMD.settings.
+# Format: "host_path:container_path[:options]"
+#
+# Prefer read-only input mounts. The generator adds the writable node-local
+# scratch mount at /out automatically.
+#
+# Example:
+# CPHMD_BIND_PATHS=(
+#     "/shared/project/topology:/top:ro"
+#     "/shared/project/start:/start:ro"
+#     "/shared/force-fields:/custom-ff:ro"
+# )
+CPHMD_BIND_PATHS=(
+)
+
+# Container environment entries in NAME=VALUE form.
+CPHMD_CONTAINER_ENV=(
+    "CPHMD_STRICT_GROMACS_MODE=1"
+    "CPHMD_GPU_PREFLIGHT=1"
+    "CPHMD_MDRUN_PREFLIGHT=1"
+)
+
+# Development-only override. Leave empty for released-image use.
+CPHMD_HOST_CODE_DIR=""
+
+# Optional submission --------------------------------------------------------
+
+# 0: generate only (recommended)
+# 1: submit locally with sbatch after generation
+CPHMD_SUBMIT="0"

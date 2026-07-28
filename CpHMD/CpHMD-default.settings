@@ -1,88 +1,114 @@
 ########################################
-#
-###  Start of CpHMD settings (pHmdp) ###
-#
+# Core CpHMD simulation settings
 ########################################
-export GPU=0
-export nCPU=8               # Number of CPUs to be used in parallel
-export SysName="Protein"    # Name of our protein or system
-export SimTime=1            # # Total time in ns that CpHMD will be rans (default 1 ns)
-export StartTime=0          # Start simulation time in ns (default 0 ns)
-export temp=310.0           # Temperature (Kelvin)
-export ionicstr=0.1         # Ionic Strength (moles/litre)
-export RelaxSteps=100       # Solvent relaxation time in steps 
-export EffectiveSteps=10000 # Effective time in steps (real simulation time)
-#
-#######################
-#
-# System definitions 
-#
-######################
-export memb=0               # Flag for membrane systems. If active index must contain Onetail/Monotail/Bitail (default 0)
-export multiple_solutes=0   # Defines if there are multiple solutes that need to be treated to correct PBC (systems with 2 solutes interacting with each other need to set this to 1)
-export include_itp=0        # Correctly treats systems pbc when solute is included as itp. (default 0)
-#
-##########################################
-#
-# --           PB/MC settings         -- #
-#
-##########################################
-export epsin=2.0            # Dielectric constant of molecular interior
-export epssol=80.0          # Dielectric constant of the solvent 
-export PBdim=0              # dimensions in the PB PBC settings (0 for protein; 2 for membrane)
-export cutoff=-1            # Cutoff (in nm) for background and pairwise interactions (-1 will not cutoff)
-export GridSize=81          # PB grid size (multiply by ~1 Angstr) (was 81)
-export scaleP=1.0           # scale large box (1.0 -> 1 Angstrm)
-export scaleM=4.0           # scale focusing box (4.0 -> 1/4 Angstrm)
-export bndcon=4             # Potential at Boundary of large box (4 -> Coul)
-export maxc=0.01            # The convergence threshold values
-export pot=0.0              # Electrostatic potential (mV).
-export offset=2000          # Integer higher than residue number .gro 
-export seed=1234567         # Monte Carlo seed used in program petit.
+export GPU=0                 # 0=CPU GROMACS; 1=CUDA GROMACS.
+export nCPU=8                # OpenMP threads; match the scheduler CPU allocation.
+export SysName="Protein"     # Stable output prefix for this simulation.
+export SimTime=1             # Total CpHMD simulation time (ns).
+export StartTime=0           # Initial simulation time (ns).
+export ffID="G54a7pH"        # G54a7pH, CHARMM36pH or Amber14SBpH.
+export pH=7.0                 # Solution pH.
+export sites="all"           # "all" or residue list; termini use N/C suffixes.
+export temp=310.0             # Temperature (K).
+export ionicstr=0.1           # Ionic strength (mol/L).
+export RelaxSteps=100         # MD steps in each solvent-relaxation phase.
+export EffectiveSteps=10000   # Effective MD steps per CpHMD cycle.
 
-##########################################
-#
-# --    Reduced Titration settings    -- #
-#
-##########################################
-export ReduceTitration=0          # turn reduced titration on or off (1/0)
+########################################
+# System and PBC treatment
+########################################
+export memb=0                # 1=membrane centering; 0=non-membrane treatment.
+export multiple_solutes=0    # 1=use fixgro for multiple non-membrane solutes.
+export include_itp=0         # 1=use fixgro for non-membrane external-ITP solute.
+export MembraneCenteringProtocol="tails"  # tails or central_atoms; used only if memb=1.
+export PBMCDebugPDB=0        # 1=keep appended PB/MC-centered debug PDB.
 
-################################
-# Plumed integration variables #
-################################
-export plumed=0          # turn plumed on or off (1/0)
+########################################
+# PB/MC electrostatics and Monte Carlo
+########################################
+export epsin=2.0             # Solute dielectric constant.
+export epssol=80.0           # Solvent dielectric constant.
+export PBdim=0               # PB periodicity: 0=protein; 2=membrane.
+export cutoff=-1             # Interaction cutoff (nm); -1=no cutoff.
+export GridSize=81           # Delphi grid size.
+export scaleP=1.0            # Coarse-grid scale.
+export scaleM=4.0            # Focusing-grid scale.
+export bndcon=4              # Delphi boundary condition.
+export maxc=0.01             # Delphi convergence threshold.
+export pot=0.0               # Applied electrostatic potential (mV).
+export offset=2000           # PB/MC residue-number offset.
+export UseInputOffset=0      # 0=automatic offset; 1=use offset above.
+export seed=-1               # PETIT Monte Carlo seed; -1=random seed.
 
-##########################################
-#
-# -- Input File Location (full PATHs) -- #
-#
-##########################################
-export TOPin=""    # The topology of your system
-export GROin=""    # The initial (gro) file
-export NDXin=""    # Index must contain "System/Protein/Solute/SOL" and "Onetail/Monotail/Bitail" when PBdim=2
-export PosRe=""             # File to use position restraints in production
-export LigItp=""            # File for itp ligands that are not in FF 
+########################################
+# Reduced titration
+########################################
+export ReduceTitration=0     # 0=off; 1=on.
+export RTThreshold=0.01      # Population threshold; used only if enabled.
+export RTInterval=5          # Full-site PB/MC at cycles 1, 1+interval, ... .
+export write_states="n"      # y=write per-site RT diagnostic populations.
+# Current RT state is checkpointed as restart/<block>.RT-active.sites and templates.
 
-####################################
-#
-# -- Input Directories Location -- #
-#
-####################################
+########################################
+# Optional PLUMED integration
+########################################
+export plumed=0              # 0=ignore the #plumed# block; 1=enable PLUMED.
+export plumedtype="grid"     # grid, hill or static.
+export colvar_name="COLVAR"  # PLUMED collective-variable output file.
+export colvar_stride=1000    # PRINT stride in MD steps.
+export grid_name="GRIDS"     # Grid file; used only for plumedtype=grid.
+export hills="HILLS"         # Metadynamics HILLS file.
+
+########################################
+# Input files
+########################################
+export TOPin=""              # Input topology.
+export GROin=""              # Initial/restart coordinates.
+export NDXin=""              # GROMACS index file.
+export PosRe=""              # Optional position-restraint file.
+export LigItp=""             # Optional ligand ITP outside the force field.
+
+########################################
+# Programs and data directories
+########################################
 export CpHDIR="/CpHMD"
-export GroDIR="/gromacs/bin/gmx"
+export GroDIRCPU="/gromacs/bin/gmx"
+export GroDIRGPU="/gromacs/bin/gmx-gpu"
+export GroDIR="/gromacs/bin/gmx"          # Historical fallback.
 export DelphiDir="/Delphi"
+export StDIR=""                           # Empty=use /STs/St-${ffID}.
 export PetitDIR="/programs/petit1.6.1"
 export ffDIR="/FFs"
 export DatabaseDIR="/Databases"
+export CpHcontainer=""                    # Optional external metadata only.
 
-#####################################
-#
-#  -- Defining mdrun parameters --  #
-#
-#####################################
-export mdruncpu="mdrun -nt $nCPU -pin auto " # Define which command should be used for parallel run
+########################################
+# Fail-fast GROMACS/runtime checks
+########################################
+export CPHMD_STRICT_GROMACS_MODE=1  # 1=require CPU build for GPU=0 and CUDA for GPU=1.
+export CPHMD_GPU_PREFLIGHT=1        # 1=require a visible requested NVIDIA device.
+export CPHMD_MDRUN_PREFLIGHT=1      # 1=run zero-step mdrun before PB/MC.
+export CPHMD_GPU_DEVICE_ID="0"      # Non-negative logical ID, or auto.
 
-export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto "
+########################################
+# Optional expert mdrun overrides
+########################################
+# Empty values use commands assembled from nCPU and CPHMD_GPU_DEVICE_ID.
+export mdruncpu=""
+export mdrungpu=""
+
+########################################
+# Output validation and retention
+########################################
+# Fixed folders: segments/, restart/, log-files/, resub_maint/, slurm_files/.
+export CPHMD_VALIDATE_SEGMENT_BINARIES=1    # 1=run gmx check on XTC/EDR.
+export CPHMD_COMPRESS_SEGMENT_LOGS=1        # 1=gzip immutable segment logs.
+export CPHMD_COMPRESS_SEGMENT_TPR=1         # 1=gzip immutable segment TPR.
+export CPHMD_COMPRESS_SEGMENT_STRUCTURES=1  # 1=gzip immutable segment GRO/TOP.
+export CPHMD_GZIP_LEVEL=6                   # gzip compression level: 1-9.
+export CPHMD_KEEP_DRIVER_LOG=1              # 1=keep wrapper/grompp/mdrun log.
+export CPHMD_KEEP_VALIDATION_LOG=1          # 1=keep gmx-check validation report.
+export CPHMD_KEEP_RT_DEBUG=0                # 1=keep reduced-titration debug state.
 
 #########################################
 #
@@ -90,6 +116,9 @@ export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto "
 #
 ########################################
 
+# MDP safety override:
+#   0 = enforce force-field-specific cutoff checks in functions.sh.
+#   1 = accept nonstandard cutoff settings after deliberate user review.
 export mdpoverride=0
 
 #mdp# define                 = 
@@ -144,3 +173,36 @@ export mdpoverride=0
 #mdp# lincs_order          = 8
 #mdp# constraints          = all-bonds
 #mdp# lincs-warnangle      = 90
+
+
+########################################
+# Optional fixgro instruction template
+########################################
+# Ignored unless memb=0 and either multiple_solutes=1 or include_itp=1.
+# Replace TOTALATOM and adapt groups/assembly/centering/PBC to the system.
+#fixgro# # Molecular definitions
+#fixgro# G Protein
+#fixgro# a 1 TOTALATOM
+#fixgro#
+#fixgro# # Groups to assemble sequentially
+#fixgro# A Protein
+#fixgro#
+#fixgro# # Centering group along x, y and z; W leaves a dimension unchanged
+#fixgro# C Protein Protein Protein W W W
+#fixgro#
+#fixgro# # PBC treatment along x, y and z
+#fixgro# P Protein Protein Protein
+
+########################################
+# Optional PLUMED input template
+########################################
+# Ignored when plumed=0. When plumed=1, replace all paths, atom selections,
+# collective variables and bias parameters with values appropriate to the system.
+# The &hills, &grid_name, &colvar_stride and &colvar_name tokens are replaced
+# from the variables above. RESTART is removed automatically for the first cycle
+# of each scheduler segment and retained for continuation cycles.
+#plumed# MOLINFO STRUCTURE=/path/to/reference.pdb
+#plumed# RESTART
+#plumed# cv: TORSION ATOMS=REPLACE_ATOM_IDS
+#plumed# metad: METAD ARG=cv PACE=500 HEIGHT=1.2 SIGMA=0.35 BIASFACTOR=8 TEMP=300 FILE=&hills GRID_MIN=-pi GRID_MAX=pi GRID_WSTRIDE=500 GRID_WFILE=&grid_name GRID_RFILE=&grid_name
+#plumed# PRINT ARG=cv,metad.bias STRIDE=&colvar_stride FILE=&colvar_name

@@ -75,3 +75,11 @@ How to manage the simulation submission, paralelization and background tasking i
     ```
     singularity run --app extract-tautomers CpHMD.sif <ff name (G54a7pH;CHARMM36pH;Amber14SBpH)>
     ```
+
+## Version 0.7 documentation
+
+- [Architecture support](docs/ARCHITECTURE_SUPPORT.md)
+- [SLURM scheduler template](docs/SLURM_SCHEDULER_TEMPLATE.md)
+- [CpHMD settings reference](docs/CPHMD_SETTINGS_REFERENCE.md)
+- [Organized output layout](docs/ORGANIZED_CPHMD_OUTPUT_LAYOUT.md)
+- [Release notes for 0.7.0](docs/RELEASE_NOTES_v0.7.0.md)

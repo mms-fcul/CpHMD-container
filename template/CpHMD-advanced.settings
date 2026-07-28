@@ -5,13 +5,13 @@
 ########################################
 export GPU=0                # Flag to activate (1) or deactivate (0) GPU support (default:0)
 export nCPU=8               # Number of CPUs to be used in parallel (default:8)
-export SysName="Protein"    # Name of our protein or system (default:Protein)
-export SimTime=25           # Total time in ns that CpHMD will be rans (default 1 ns)
+export SysName="AAA"        # Name of our protein or system (default:Protein)
+export SimTime=10           # Total time in ns that CpHMD will be rans (default 1 ns)
 export StartTime=0          # Start simulation time in ns (default 0 ns)
-export ffID=G54a7pH         # Force fields: G54a7pH or CHARMM36pH or Amber14SBpH (default:G54a7pH)
-export pH=7.2               # Solution pH (default 7.0)
-export sites="all 1N XXXC"  # list of residues to titrate or "all" to titrate every residue. Termini should be defined with N and C after the residue number
-export temp=310.0           # Temperature (Kelvin)
+export ffID=FORCEFIELD      # Force fields: G54a7pH or CHARMM36pH or Amber14SBpH (default:G54a7pH)
+export pH=BBB               # Solution pH (default 7.0)
+export sites="SITESLIST"    # list of residues to titrate or "all" to titrate every residue. Termini should be defined with N and C after the residue number. eg: sites="all 1N XXXC"
+export temp=310.15          # Temperature (Kelvin)
 export ionicstr=0.1         # Ionic Strength (moles/litre)
 export RelaxSteps=100       # Solvent relaxation time in steps 
 export EffectiveSteps=10000 # Effective time in steps (real simulation time)
@@ -21,9 +21,9 @@ export EffectiveSteps=10000 # Effective time in steps (real simulation time)
 # System definitions 
 #
 ######################
-export memb=0               # Flag for membrane systems. If active index must contain Onetail/Monotail/Bitail (default 0)
+export memb=1               # Flag for membrane systems. If active, index requirements depend on MembraneCenteringProtocol below.
 export multiple_solutes=0   # Defines if there are multiple solutes that need to be treated to correct PBC (systems with 2 solutes interacting with each other need to set this to 1)
-export include_itp=0        # Correctly treats systems pbc when solute is included as itp. (default 0)
+export include_itp=1        # Correctly treats systems pbc when solute is included as itp. (default 0)
 #
 ##########################################
 #
@@ -41,18 +41,47 @@ export bndcon=4             # Potential at Boundary of large box (4 -> Coul)
 export maxc=0.01            # The convergence threshold values
 export pot=0.0              # Electrostatic potential (mV).
 export offset=2000          # Integer higher than residue number .gro 
-export seed=1234567         # Monte Carlo seed used in program petit.
+export seed=-1              # Monte Carlo seed used in program petit.
 
 ##########################################
 #
 # --    Reduced Titration settings    -- #
 #
 ##########################################
+# ReduceTitration=0 runs the historical all-site CpHMD protocol.
+# ReduceTitration=1 periodically selects a reduced list of titrating sites
+# based on their PB/MC populations.
 export ReduceTitration=0
+
+# Only used when ReduceTitration=1.
+# RTThreshold controls which sites are kept fixed/titrating during reduced
+# cycles; RTInterval controls how often a full all-site PB/MC update is run.
 export RTThreshold=0.01
 export RTInterval=5
-## RT debug ##
+
+# RT debug output. When write_states="y" and ReduceTitration=1, the code
+# writes occupation/state information useful for validating reduced titration.
 export write_states="y"
+
+##########################################
+#
+# --       ASIC support settings       -- #
+#
+##########################################
+# UseInputOffset=0 preserves the historical behavior: the PB/MC residue offset
+# is determined automatically from the last protein residue number.
+# UseInputOffset=1 uses the offset value explicitly defined above.
+export UseInputOffset=0
+
+# MembraneCenteringProtocol="tails" preserves the historical membrane-centering
+# protocol and requires Onetail/Monotail/Bitail groups in the index file.
+# MembraneCenteringProtocol="central_atoms" enables the ASIC/large-channel
+# centering protocol and requires CentralAtom/CentralAtoms groups in the index.
+export MembraneCenteringProtocol="tails"
+
+# PBMCDebugPDB=0 disables PB/MC debug PDB output.
+# PBMCDebugPDB=1 writes an appended PB/MC debug PDB, useful for validation runs.
+export PBMCDebugPDB=0
 
 ############################################
 #
@@ -72,9 +101,9 @@ export hills="HILLS"          # name of the HILLS file
 # -- Input File Location (full PATHs) -- #
 #
 ##########################################
-export TOPin="penta.top"    # The topology of your system
-export GROin="penta.gro"    # The initial (gro) file
-export NDXin="index.ndx"    # Index must contain "System/Protein/Solute/SOL" and "Onetail/Monotail/Bitail" for membrane
+export TOPin="TTT"          # The topology of your system
+export GROin="GGG"          # The initial (gro) file
+export NDXin="NNN"          # Index must contain "System/Protein/Solute/SOL". For membrane systems, it must also contain either Onetail/Monotail/Bitail or CentralAtom/CentralAtoms, depending on MembraneCenteringProtocol.
 export PosRe=""             # File to use position restraints in production
 
 ####################################
@@ -82,13 +111,14 @@ export PosRe=""             # File to use position restraints in production
 # -- Input Directories Location -- #
 #
 ####################################
-export CpHDIR=""            # CpHMD distribution
-export GroDIR=""            # GROMACS Binaries
-export DelphiDir=""         # DELPHI Programs and scripts
-export StDIR=""             # Location of .st files
-export PetitDIR=""          # Petit program
-export ffDIR=""             # Forcefield folder
-export DatabaseDIR=""       # Location of the Delphi databases
+export CpHDIR="/CpHMD"          # CpHMD distribution
+export GroDIR="/gromacs/bin/gmx"    # GROMACS executable
+export DelphiDir="/delphitools"     # DELPHI Programs and scripts
+export StDIR=""                 # Location of .st files
+export PetitDIR="/programs/petit1.6.1"  # Petit program
+export ffDIR="/FFs"             # Forcefield folder
+export DatabaseDIR="/delphitools" # Location of the Delphi databases
+export CpHcontainer=""          # Full path location on where the container is located
 
 ############################
 #                          #  
@@ -98,6 +128,12 @@ export DatabaseDIR=""       # Location of the Delphi databases
 export mdruncpu="mdrun -nt $nCPU -pin auto "                       # Define which command should be used for CPU parallel run
 export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto " # Define which command should be used for GPU run
 
+## allow for override from MDP info ##
+# mdpoverride=0 keeps CpHMD's force-field-specific MDP sanity checks active.
+# mdpoverride=1 disables those checks when the user intentionally provides
+# non-default MDP parameters.
+export mdpoverride=0
+
 ########################################
 #
 ###  Start of mdp file for CpHMD     ###
@@ -106,12 +142,12 @@ export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto " # Define whic
 #mdp# 
 #mdp# define                 = 
 #mdp# integrator             =  md
-#mdp# tinit                  =  0.0 ; Overridden with the value calculated by CpHMD
-#mdp# dt                     =  0.002    ; ps !
-#mdp# nsteps                 =  10000 ; Overridden with the value from settings
+#mdp# tinit                  =  0.0       ; Overridden with the value calculated by CpHMD
+#mdp# dt                     =  0.002     ; ps !
+#mdp# nsteps                 =  0         ; Overridden with the value from settings
 #mdp# nstcalcenergy          =  5
 #mdp# nstcomm                =  5
-#mdp# nstxout-compressed     =  5000
+#mdp# nstxout-compressed     =  10000
 #mdp# compressed-x-precision =  1000
 #mdp# nstenergy              =  5000
 #mdp# nstxout                =  0
@@ -121,52 +157,55 @@ export mdrungpu="mdrun -ntmpi 1 -ntomp $nCPU -gpu_id 0 -pin auto " # Define whic
 #mdp# ns_type		     =  grid
 #mdp# 
 #mdp# ; PME 
-#mdp# coulombtype         = PME
-#mdp# nstlist             = 10
-#mdp# rlist               = 1.4
-#mdp# fourierspacing      = 0.12
-#mdp# rcoulomb            = 1.4
-#mdp# pme-order           = 4
-#mdp# rvdw                = 1.4
-#mdp# cutoff-scheme       = verlet
-#mdp# 
-#mdp# vdwtype             = cut-off
+#mdp# cutoff-scheme          = verlet
+#mdp# coulombtype            = PME
+#mdp# nstlist                = 20
+#mdp# vdwtype                = cut-off
+#mdp# rlist                  = 1.0                      ; AMBER specific
+#mdp# rcoulomb               = 1.0                      ; AMBER specific
+#mdp# rvdw                   = 1.0                      ; AMBER specific
+#mdp# rvdw-switch            = 1.0                      ; not in GROMOS
+#mdp# vdw-modifier           = Potential-shift-Verlet   ; AMBER specific
+#mdp# fourierspacing         = 0.125                    ; grid spacing for FFT (rvdw/8)
+#mdp# pme-order              = 4
 #mdp# 
 #mdp# ; Energy monitoring 
 #mdp# ; (ions - when present - should be added to the SOL group in the index file)
-#mdp# energygrps          =  Protein SOL
+#mdp# energygrps          =  System
 #mdp# 
 #mdp# ; v-rescaletemperature coupling is on available groups
 #mdp# ; This thermostat is similar to Berendsen coupling, but the stochastic 
 #mdp# ; term ensures that a proper canonical ensemble is generated.
 #mdp# Tcoupl              =  v-rescale
 #mdp# tc-grps             =  Protein  SOL
-#mdp# tau_t               =  1       1
-#mdp# ref_t               =  310.0   310.0 ; Overridden with the value from settings   
+#mdp# tau_t               =  1        1
+#mdp# ref_t               =  310.15   310.15  ; Overridden with the value from settings
 #mdp# 
 #mdp# ; Isotropic pressure coupling is now on
 #mdp# Pcoupl              =  Parrinello-Rahman
-#mdp# Pcoupltype          =  isotropic
-#mdp# tau_p               =  5.0
-#mdp# compressibility     =  4.5e-5
-#mdp# ref_p               =  1.0
-#mdp# 
+#mdp# Pcoupltype          =  semiisotropic
+#mdp# tau_p               =  8.0
+#mdp# compressibility     =  4.5e-5 4.5e-5
+#mdp# ref_p               =  1.0    1.0
+#mdp#
+#mdp# DispCorr            =  EnerPres   ; account for cut-off vdW scheme
+#mdp#
 #mdp# ; lincs_order value of 8 works better than 4
 #mdp# constraint_algorithm = lincs
 #mdp# lincs_order          = 8
-#mdp# constraints          = all-bonds
+#mdp# constraints          = h-bonds
 #mdp# lincs-warnangle      = 90
 
-###########################################
+########################################
 #
 ###  Start of fixgro file for CpHMD     ###
 #
-###########################################
+########################################
 # This file will only be used when 2 chains are present or if 
 # include_itp=1 flag is given! 
 #
 #fixgro# G Protein
-#fixgro# a 1 1367
+#fixgro# a 1 TOTALATOM
 #fixgro# 
 #fixgro# # Groups to be (sequentially) assembled:
 #fixgro# A Protein

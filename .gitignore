@@ -9,3 +9,31 @@ tutorial-testing/
 app-note-testing/
 test.sif
 container-tests/
+# CpHMD v0.7 local release artifacts
+*.sif
+*.simg
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Local source backups
+*.pre-*
+*.previous-*
+
+# Scheduler output
+slurm-*.out
+*.slurm.log
+
+# Local container-build results
+tests/gpu-output-contract/build/artifacts/*
+!tests/gpu-output-contract/build/artifacts/.gitkeep
+
+# Private scientific integration results
+tests/gpu-output-contract/runs/*
+!tests/gpu-output-contract/runs/.gitkeep
+tests/gpu-output-contract/results/*
+!tests/gpu-output-contract/results/.gitkeep
+
+# Generated third-party configuration logs
+plumed/config.log

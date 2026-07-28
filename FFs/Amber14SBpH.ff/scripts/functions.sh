@@ -327,7 +327,6 @@ run_PBMC()
     # (moleculetype for the solvent cannot exist) SC 13-12-2011
 	# TOPin=nasp-clys.top
 	# MToolsDIR="/programs/meadTools2.0.1"
-	# CpHDIR="/home/jsequeira/Projects/04_ASICs/FF/Amber14SBpH.ff"
 	# ffID=Amber14SBpH
 		
         # "$MToolsDIR"/makepqr W 2RT "$CpHDIR"/top/ff${ffID}nb.itp $TOPin \
@@ -439,7 +438,6 @@ run_PBMC()
     #   ln -s ${runname}.pbp DELPHI.pbp
     #
     # Run delphiT and Delphi: # MM 09/01/2012
-	#DelphiDir="/home/jsequeira/Projects/04_ASICs/FF/DelphiTools_v2.1_AMBER/"
 	
         "$DelphiDir"/delphiT $nCPU ${runname} ${PBdim} \
             >TMP_delphi.out 2>TMP_delphi.err
